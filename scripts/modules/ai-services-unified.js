@@ -41,6 +41,7 @@ import {
 	AzureProvider,
 	BedrockAIProvider,
 	ClaudeCodeProvider,
+	CursorAgentProvider,
 	GeminiCliProvider,
 	GoogleAIProvider,
 	GroqProvider,
@@ -69,7 +70,8 @@ const PROVIDERS = {
 	azure: new AzureProvider(),
 	vertex: new VertexAIProvider(),
 	'claude-code': new ClaudeCodeProvider(),
-	'gemini-cli': new GeminiCliProvider()
+	'gemini-cli': new GeminiCliProvider(),
+	'cursor-agent': new CursorAgentProvider()
 };
 
 function _getProvider(providerName) {
