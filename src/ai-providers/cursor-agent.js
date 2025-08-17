@@ -8,6 +8,7 @@
 
 import { BaseAIProvider } from './base-provider.js';
 import { execSync, spawn } from 'child_process';
+import fs from 'fs';
 import { log } from '../../scripts/modules/utils.js';
 
 export class CursorAgentProvider extends BaseAIProvider {
@@ -240,7 +241,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 				// Write prompt to temporary file to avoid shell escaping issues
 				tmpFile = `/tmp/cursor-prompt-${sessionName}.txt`;
 				try {
-					require('fs').writeFileSync(tmpFile, prompt, 'utf8');
+					fs.writeFileSync(tmpFile, prompt, 'utf8');
 					log('DEBUG: Temp file created:', tmpFile);
 				} catch (fileError) {
 					throw new Error(`Failed to create temp file: ${fileError.message}`);
@@ -330,7 +331,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 								// Clean up temp file 
 								if (tmpFile) {
 									try {
-										require('fs').unlinkSync(tmpFile);
+										fs.unlinkSync(tmpFile);
 									} catch (fileCleanupError) {
 										log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
 									}
@@ -359,7 +360,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 							// Clean up temp file 
 							if (tmpFile) {
 								try {
-									require('fs').unlinkSync(tmpFile);
+									fs.unlinkSync(tmpFile);
 								} catch (fileCleanupError) {
 									log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
 								}
@@ -400,7 +401,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 						// Clean up temp file 
 						if (tmpFile) {
 							try {
-								require('fs').unlinkSync(tmpFile);
+								fs.unlinkSync(tmpFile);
 							} catch (fileCleanupError) {
 								// Ignore temp file cleanup errors
 							}
@@ -426,7 +427,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 				// Clean up temp file if it was created
 				if (tmpFile) {
 					try {
-						require('fs').unlinkSync(tmpFile);
+						fs.unlinkSync(tmpFile);
 					} catch (fileCleanupError) {
 						// Ignore temp file cleanup errors
 					}
