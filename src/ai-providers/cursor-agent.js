@@ -66,7 +66,8 @@ export class CursorAgentProvider extends BaseAIProvider {
 				}
 			};
 		} catch (error) {
-			this.handleError('client initialization', error);
+			log('cursor-agent client initialization error:', error);
+			throw new Error(`Cursor Agent client initialization failed: ${error.message}`);
 		}
 	}
 
@@ -217,14 +218,16 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 */
 	async executeCursorAgent(args, prompt) {
 		return new Promise((resolve, reject) => {
-			const timeout = 180000; // 3 minute timeout for complex operations
+			const timeout = 25000; // 25 second timeout with force-kill at 16s
 			const sessionName = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 			
+			let tmpFile = null;
 			try {
 				log('Executing cursor-agent via tmux:', { 
 					sessionName,
 					command: args.join(' '), 
-					promptLength: prompt.length 
+					promptLength: prompt.length,
+					promptPreview: prompt.slice(0, 200) + '...'
 				});
 
 				// Create detached tmux session
@@ -234,11 +237,23 @@ export class CursorAgentProvider extends BaseAIProvider {
 					cwd: process.cwd()
 				});
 
-				// Build the full command with proper escaping
-				const command = `echo ${JSON.stringify(prompt)} | ${args.join(' ')}`;
+				// Write prompt to temporary file to avoid shell escaping issues
+				tmpFile = `/tmp/cursor-prompt-${sessionName}.txt`;
+				try {
+					require('fs').writeFileSync(tmpFile, prompt, 'utf8');
+					log('DEBUG: Temp file created:', tmpFile);
+				} catch (fileError) {
+					throw new Error(`Failed to create temp file: ${fileError.message}`);
+				}
+
+				// Build command using temp file to avoid complex escaping
+				const command = `cat ${tmpFile} | ${args.join(' ')}`;
 				
-				// Send command to tmux session
-				execSync(`tmux send-keys -t ${sessionName} ${JSON.stringify(command)} Enter`, {
+				// DEBUG: Log the exact command being executed
+				log('DEBUG: Executing command in tmux:', command);
+				
+				// Send command to tmux session using single quotes to avoid escaping issues
+				execSync(`tmux send-keys -t ${sessionName} '${command}' Enter`, {
 					encoding: 'utf8',
 					timeout: 5000,
 					cwd: process.cwd()
@@ -259,22 +274,44 @@ export class CursorAgentProvider extends BaseAIProvider {
 							cwd: process.cwd()
 						});
 
-						// Look for JSON response pattern
-						const jsonMatch = output.match(/\{"type":"result"[^}]*\}.*?\}/s);
+						// Look for any JSON response in the output
+						log('DEBUG: tmux output:', output.slice(-500)); // Last 500 chars for debugging
 						
-						if (jsonMatch) {
-							// Found JSON response, extract and clean it
-							const jsonLine = output.split('\n').find(line => line.trim().startsWith('{"type":"result"'));
-							
-							if (jsonLine) {
-								// Handle wrapped JSON by reconstructing it
-								const jsonLines = output.split('\n')
-									.slice(output.split('\n').findIndex(line => line.trim().startsWith('{"type":"result"')))
-									.join('')
-									.replace(/\s+/g, ' ')
-									.trim();
-
-								const parsed = JSON.parse(jsonLines);
+						// Try multiple JSON extraction patterns
+						let parsed = null;
+						
+						// Pattern 1: Look for {"type":"result"...} format 
+						const resultMatch = output.match(/\{"type":"result".*?\}/s);
+						if (resultMatch) {
+							try {
+								parsed = JSON.parse(resultMatch[0]);
+								log('DEBUG: Parsed JSON from result pattern');
+							} catch (e) {
+								log('DEBUG: Failed to parse result pattern JSON:', e.message);
+							}
+						}
+						
+						// Pattern 2: Look for any complete JSON object starting with {
+						if (!parsed) {
+							const lines = output.split('\n');
+							for (let i = lines.length - 1; i >= 0; i--) {
+								const line = lines[i].trim();
+								if (line.startsWith('{') && line.endsWith('}')) {
+									try {
+										const testParsed = JSON.parse(line);
+										if (testParsed.type || testParsed.result || testParsed.content) {
+											parsed = testParsed;
+											log('DEBUG: Parsed JSON from line scan');
+											break;
+										}
+									} catch (e) {
+										// Continue trying other lines
+									}
+								}
+							}
+						}
+						
+						if (parsed) {
 								
 								log('cursor-agent response received via tmux:', { 
 									type: parsed.type, 
@@ -283,16 +320,65 @@ export class CursorAgentProvider extends BaseAIProvider {
 									sessionName
 								});
 
-								// Clean up tmux session
+								// Clean up tmux session and temp file
 								try {
 									execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
 								} catch (cleanupError) {
 									log('Warning: Failed to cleanup tmux session:', { sessionName, error: cleanupError.message });
 								}
 								
+								// Clean up temp file 
+								if (tmpFile) {
+									try {
+										require('fs').unlinkSync(tmpFile);
+									} catch (fileCleanupError) {
+										log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
+									}
+								}
+								
 								resolve(parsed);
 								return;
+						}
+
+						// Force kill logic: If we see substantial output but no JSON, kill after 15 seconds
+						const hasSubstantialOutput = output.length > 200 && (
+							output.includes('Hello!') || 
+							output.includes('Perfect!') || 
+							output.includes('Read ') || 
+							attempts >= 8 // 16 seconds of polling
+						);
+						
+						if (hasSubstantialOutput && !parsed) {
+							log('DEBUG: Force killing cursor-agent - has substantial output but no clean JSON');
+							try {
+								execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
+							} catch (cleanupError) {
+								log('Warning: Failed to force cleanup tmux session:', { sessionName, error: cleanupError.message });
 							}
+							
+							// Clean up temp file 
+							if (tmpFile) {
+								try {
+									require('fs').unlinkSync(tmpFile);
+								} catch (fileCleanupError) {
+									log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
+								}
+							}
+							
+							// Try to extract any useful text content as fallback
+							const textContent = output
+								.replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI codes
+								.split('\n')
+								.filter(line => line.trim().length > 0)
+								.slice(-10) // Last 10 meaningful lines
+								.join('\n');
+								
+							resolve({
+								text: textContent || 'Response received but no clean JSON format',
+								usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
+								finishReason: 'force_stop'
+							});
+							return;
 						}
 
 						// Check if we've hit timeout
@@ -304,11 +390,20 @@ export class CursorAgentProvider extends BaseAIProvider {
 						setTimeout(checkCompletion, 2000);
 						
 					} catch (error) {
-						// Clean up session on error
+						// Clean up session and temp file on error
 						try {
 							execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
 						} catch (cleanupError) {
 							// Ignore cleanup errors
+						}
+						
+						// Clean up temp file 
+						if (tmpFile) {
+							try {
+								require('fs').unlinkSync(tmpFile);
+							} catch (fileCleanupError) {
+								// Ignore temp file cleanup errors
+							}
 						}
 						
 						reject(new Error(`cursor-agent tmux execution failed: ${error.message}`));
@@ -321,11 +416,20 @@ export class CursorAgentProvider extends BaseAIProvider {
 			} catch (error) {
 				log('cursor-agent tmux setup error:', error);
 				
-				// Clean up session if it was created
+				// Clean up session and temp file if they were created
 				try {
 					execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
 				} catch (cleanupError) {
 					// Ignore cleanup errors
+				}
+				
+				// Clean up temp file if it was created
+				if (tmpFile) {
+					try {
+						require('fs').unlinkSync(tmpFile);
+					} catch (fileCleanupError) {
+						// Ignore temp file cleanup errors
+					}
 				}
 				
 				reject(new Error(`cursor-agent tmux setup failed: ${error.message}`));
