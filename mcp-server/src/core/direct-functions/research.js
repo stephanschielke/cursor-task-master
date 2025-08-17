@@ -4,7 +4,7 @@
  */
 
 import path from 'path';
-import { performResearch } from '../../../../scripts/modules/task-manager.js';
+import { performResearch, performEnhancedResearch } from '../../../../scripts/modules/task-manager.js';
 import {
 	enableSilentMode,
 	disableSilentMode
@@ -126,7 +126,7 @@ export async function researchDirect(args, log, context = {}) {
 		};
 
 		// Call the performResearch function
-		const result = await performResearch(
+		const result = await performEnhancedResearch(
 			query.trim(),
 			researchOptions,
 			researchContext,
