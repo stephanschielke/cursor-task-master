@@ -61,7 +61,6 @@ export {
 	readComplexityReport,
 	migrateProject,
 	performResearch,
-    performEnhancedResearch,
 	scopeUpTask,
 	scopeDownTask,
 	validateStrength

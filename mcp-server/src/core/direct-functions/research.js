@@ -4,7 +4,8 @@
  */
 
 import path from 'path';
-import { performResearch, performEnhancedResearch } from '../../../../scripts/modules/task-manager.js';
+import { performResearch } from '../../../../scripts/modules/task-manager.js';
+import { performEnhancedResearch } from '../../../../scripts/modules/task-manager/enhanced-research.js';
 import {
 	enableSilentMode,
 	disableSilentMode

@@ -382,5 +382,3 @@ function getOptimalEngines(query) {
     // General queries - use multiple engines for diversity
     return ['bing', 'duckduckgo'];
 }
-
-export { performEnhancedResearch };

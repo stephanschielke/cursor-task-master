@@ -439,11 +439,30 @@ export class CursorAgentProvider extends BaseAIProvider {
 	}
 
 	/**
-	 * Format messages for cursor-agent consumption
+	 * Format messages for cursor-agent prompt with recursive MCP enhancement
 	 * @param {Array|string} messages - Messages to format
-	 * @returns {string} Formatted prompt string
+	 * @param {Object} options - Configuration options
+	 * @param {string} options.mode - Execution mode: 'sequential' or 'recursive' (default: 'recursive')
+	 * @returns {string} Enhanced prompt string optimized for cursor-agent capabilities
 	 */
-	formatMessages(messages) {
+	formatMessages(messages, options = {}) {
+		const { mode = 'recursive' } = options;
+		const basePrompt = this.extractBasePrompt(messages);
+
+		// Detect operation type and enhance accordingly
+		const operationType = this.detectOperationType(basePrompt);
+
+		if (operationType) {
+			return this.buildEnhancedPrompt(operationType, basePrompt, mode);
+		}
+
+		return basePrompt;
+	}
+
+	/**
+	 * Extract base prompt from various message formats
+	 */
+	extractBasePrompt(messages) {
 		if (typeof messages === 'string') {
 			return messages;
 		}
@@ -464,6 +483,53 @@ export class CursorAgentProvider extends BaseAIProvider {
 	}
 
 	/**
+	 * Detect TaskMaster operation type from prompt for enhancement
+	 */
+	detectOperationType(prompt) {
+		const lowerPrompt = prompt.toLowerCase();
+
+		if (lowerPrompt.includes('expand') && lowerPrompt.includes('task')) {
+			return 'expand_task';
+		}
+		if (lowerPrompt.includes('parse') && lowerPrompt.includes('prd')) {
+			return 'parse_prd';
+		}
+		if (lowerPrompt.includes('update') && lowerPrompt.includes('task')) {
+			return 'update_task';
+		}
+		if (lowerPrompt.includes('add') && lowerPrompt.includes('task')) {
+			return 'add_task';
+		}
+		if (lowerPrompt.includes('analyze') && lowerPrompt.includes('complexity')) {
+			return 'analyze_complexity';
+		}
+
+		return null;
+	}
+
+	/**
+	 * Build enhanced prompt with operation-specific instructions
+	 */
+	buildEnhancedPrompt(operationType, basePrompt, mode = 'recursive') {
+		const isRecursive = mode === 'recursive';
+
+		const strategies = {
+			expand_task: isRecursive ? this.buildTaskExpansionStrategy : this.buildSequentialTaskExpansionStrategy,
+			parse_prd: isRecursive ? this.buildPRDParsingStrategy : this.buildSequentialPRDParsingStrategy,
+			update_task: this.buildTaskUpdateStrategy,
+			add_task: this.buildTaskCreationStrategy,
+			analyze_complexity: this.buildComplexityAnalysisStrategy
+		};
+
+		const builder = strategies[operationType];
+		if (builder) {
+			return builder.call(this, basePrompt);
+		}
+
+		return basePrompt;
+	}
+
+	/**
 	 * Check if cursor-agent is available and user is authenticated
 	 * @returns {Promise<boolean>} True if cursor-agent is ready to use
 	 */
@@ -480,5 +546,235 @@ export class CursorAgentProvider extends BaseAIProvider {
 			log('cursor-agent availability check failed:', error);
 			return false;
 		}
+	}
+
+	// =================== OPERATION-SPECIFIC STRATEGY METHODS ===================
+
+	/**
+	 * Build recursive task expansion strategy for cursor-agent
+	 */
+	buildTaskExpansionStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant with RECURSIVE MCP ACCESS and parallel execution capabilities.
+
+AVAILABLE TOOLS:
+• Shell: Execute any command including tmux for parallel operations
+• TodoWrite: Create structured task lists and planning
+• Read: Read multiple files (use in parallel for efficiency)
+• Grep: Search codebase patterns and dependencies
+• LS/Glob: Discover project structure
+
+🔄 RECURSIVE MCP TOOLS (TaskMaster MCP Server Access):
+You have DIRECT ACCESS to TaskMaster via MCP calls:
+• expand_task - Break tasks into subtasks RECURSIVELY
+• scope_up_task / scope_down_task - Adjust complexity dynamically
+• add_task - Create new tasks during analysis
+• update_task - Modify tasks with enhanced context
+• get_tasks - Query current TaskMaster state
+• analyze_complexity - Assess and optimize task complexity
+
+RECURSIVE EXPANSION WORKFLOW:
+1. Use TodoWrite to create systematic expansion plan
+2. Gather project context in parallel (tmux + multiple Read operations)
+3. **RECURSIVE: Use TaskMaster MCP expand_task for complex subtasks**
+4. Analyze expansion results and identify optimization needs
+5. **RECURSIVE: Use TaskMaster MCP scope_up_task for underscoped items**
+6. **RECURSIVE: Use TaskMaster MCP scope_down_task for overscoped items**
+7. **RECURSIVE: Use TaskMaster MCP add_task for discovered dependencies**
+8. **RECURSIVE: Use TaskMaster MCP update_task with enhanced details**
+9. Validate entire task structure and dependencies
+10. **FINAL: Use TaskMaster MCP to confirm optimized task structure**
+
+PARALLEL + RECURSIVE STRATEGY:
+- Use tmux for parallel file/code analysis
+- Use MCP calls for dynamic TaskMaster state management
+- Create feedback loops between analysis and task optimization
+- Self-manage the entire workflow from expansion to optimization
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Execute this RECURSIVELY using both local tools AND TaskMaster MCP calls. You can modify TaskMaster state as you analyze. Create a self-optimizing expansion workflow.`;
+	}
+
+	/**
+	 * Build recursive PRD parsing strategy for cursor-agent
+	 */
+	buildPRDParsingStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant with RECURSIVE MCP ACCESS for dynamic PRD parsing and task creation.
+
+AVAILABLE TOOLS:
+• Shell: Execute commands and manage parallel operations via tmux
+• TodoWrite: Create structured parsing plans
+• Read: Read PRD and related files in parallel
+• Grep: Search for existing patterns and dependencies
+
+🔄 RECURSIVE MCP TOOLS (TaskMaster MCP Server Access):
+You have DIRECT ACCESS to TaskMaster via MCP calls:
+• add_task - Create new tasks dynamically during parsing
+• analyze_complexity - Assess task complexity in real-time
+• expand_task - Break down complex discovered tasks immediately
+• update_task - Enhance tasks with discovered context
+• get_tasks - Query current state for dependency analysis
+
+RECURSIVE PRD PARSING WORKFLOW:
+1. Use TodoWrite to create systematic parsing plan
+2. Read and analyze PRD content in parallel
+3. **RECURSIVE: Use TaskMaster MCP add_task for each discovered requirement**
+4. **RECURSIVE: Use TaskMaster MCP analyze_complexity for new tasks**
+5. **RECURSIVE: Use TaskMaster MCP expand_task for complex requirements**
+6. **RECURSIVE: Use TaskMaster MCP update_task with cross-references**
+7. Create dependency relationships between discovered tasks
+8. **RECURSIVE: Optimize task structure using MCP calls**
+9. Validate complete task hierarchy
+10. **FINAL: Confirm optimized PRD-driven task structure**
+
+DYNAMIC TASK CREATION STRATEGY:
+- Parse PRD sections and create tasks in real-time
+- Use MCP calls to build task structure as you discover requirements
+- Create feedback loops between parsing and task optimization
+- Self-manage task creation, complexity analysis, and expansion
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Parse the PRD RECURSIVELY using TaskMaster MCP calls to create and optimize tasks dynamically. Build the entire task structure through recursive MCP interactions.`;
+	}
+
+	/**
+	 * Build sequential task expansion strategy (non-recursive)
+	 */
+	buildSequentialTaskExpansionStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant focused on systematic task expansion analysis.
+
+AVAILABLE TOOLS:
+• Shell: Execute commands for analysis
+• TodoWrite: Create structured expansion plans
+• Read: Analyze project files and context
+• Grep: Search for patterns and dependencies
+
+SEQUENTIAL EXPANSION WORKFLOW:
+1. Use TodoWrite to create detailed expansion plan
+2. Gather comprehensive project context
+3. Analyze task complexity and requirements
+4. Plan optimal subtask breakdown
+5. Provide detailed expansion recommendations
+6. Include dependency analysis
+7. Suggest testing strategies
+8. Document implementation approach
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Provide thorough analysis and recommendations for task expansion without modifying TaskMaster state directly.`;
+	}
+
+	/**
+	 * Build sequential PRD parsing strategy (non-recursive)
+	 */
+	buildSequentialPRDParsingStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant focused on systematic PRD analysis and planning.
+
+AVAILABLE TOOLS:
+• Shell: Execute commands for analysis
+• TodoWrite: Create structured parsing plans
+• Read: Analyze PRD and related documentation
+• Grep: Search for existing patterns
+
+SEQUENTIAL PRD PARSING WORKFLOW:
+1. Use TodoWrite to create systematic parsing plan
+2. Read and analyze complete PRD content
+3. Identify all requirements and dependencies
+4. Plan optimal task structure and hierarchy
+5. Provide detailed task creation recommendations
+6. Include complexity and dependency analysis
+7. Suggest implementation sequence
+8. Document testing and validation strategies
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Provide comprehensive analysis and structured recommendations for PRD-driven task creation without modifying TaskMaster state directly.`;
+	}
+
+	/**
+	 * Build task update strategy
+	 */
+	buildTaskUpdateStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant with task update capabilities.
+
+AVAILABLE TOOLS:
+• Shell: Execute commands for analysis
+• TodoWrite: Create update plans
+• Read: Analyze current context and changes
+• Grep: Search for related patterns
+
+TASK UPDATE WORKFLOW:
+1. Analyze current task state and context
+2. Identify specific changes needed
+3. Plan update approach and implications
+4. Consider dependency impacts
+5. Provide detailed update recommendations
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Provide thorough analysis for task updates with consideration of broader project impact.`;
+	}
+
+	/**
+	 * Build task creation strategy
+	 */
+	buildTaskCreationStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant with task creation capabilities.
+
+AVAILABLE TOOLS:
+• Shell: Execute commands for analysis
+• TodoWrite: Create task creation plans
+• Read: Analyze project context
+• Grep: Search for patterns and dependencies
+
+TASK CREATION WORKFLOW:
+1. Analyze task creation requirements
+2. Gather relevant project context
+3. Plan task structure and dependencies
+4. Consider complexity and implementation approach
+5. Provide detailed task creation recommendations
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Provide comprehensive analysis for creating well-structured tasks with proper context and dependencies.`;
+	}
+
+	/**
+	 * Build complexity analysis strategy
+	 */
+	buildComplexityAnalysisStrategy(basePrompt) {
+		return `You are a TaskMaster AI assistant with complexity analysis capabilities.
+
+AVAILABLE TOOLS:
+• Shell: Execute commands for codebase analysis
+• TodoWrite: Create analysis plans
+• Read: Analyze code and project files
+• Grep: Search for complexity patterns
+
+COMPLEXITY ANALYSIS WORKFLOW:
+1. Create systematic analysis plan
+2. Gather codebase metrics and patterns
+3. Analyze task complexity factors
+4. Identify potential bottlenecks and challenges
+5. Provide detailed complexity assessment and recommendations
+
+ORIGINAL REQUEST:
+${basePrompt}
+
+EXECUTION APPROACH:
+Provide thorough complexity analysis with actionable recommendations for task optimization.`;
 	}
 }

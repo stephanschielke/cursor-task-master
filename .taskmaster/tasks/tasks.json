@@ -7170,10 +7170,47 @@
         "description": "Finalize cursor-agent provider integration to eliminate API costs and use Cursor's subscription",
         "details": "\nURGENT: Complete cursor-agent CLI Provider integration to eliminate API costs\n\nBackground: cursor-agent provider has been implemented as a cost-saving measure to use Cursor's existing subscription instead of requiring separate API keys for TaskMaster operations.\n\nCurrent Status:\n✅ CursorAgentProvider class implemented in src/ai-providers/cursor-agent.js\n✅ Provider registered in ai-services-unified.js \n✅ Configuration support added to config-manager.js\n✅ tmux-based execution strategy implemented for non-interactive mode\n✅ Configuration set in .taskmaster/config.json to use cursor-agent as main provider\n✅ MCP server restarted successfully - cursor-agent provider loaded\n\nCritical Next Steps:\n1. Test cursor-agent provider functionality with actual TaskMaster operations\n2. Validate tmux isolation prevents interactive mode hanging\n3. Verify full workspace context is provided to AI operations\n4. Confirm API cost elimination (no external API calls)\n5. Test error handling and timeout scenarios\n6. Validate model configuration (use 'sonnet' not 'sonnet-4')\n7. Test with various TaskMaster commands: parse_prd, expand_task, research\n8. Document performance characteristics vs API providers\n9. Create user documentation for cursor-agent setup and benefits\n\nExpected Benefits:\n- Zero API costs for TaskMaster operations\n- Full workspace context in all AI responses\n- Consistent Claude models across Cursor chat and TaskMaster\n- No additional authentication setup required\n",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement recursive MCP prompt enhancement",
+            "description": "Add formatMessages options parameter and operation detection for cursor-agent",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 2,
+            "title": "Add operation detection methods",
+            "description": "Implement detectOperationType and buildEnhancedPrompt methods",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 3,
+            "title": "Implement recursive prompt strategies",
+            "description": "Add buildTaskExpansionStrategy and buildPRDParsingStrategy with recursive MCP instructions",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 4,
+            "title": "Test recursive MCP integration",
+            "description": "Verify cursor-agent can call TaskMaster MCP tools recursively and generate enhanced prompts",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          }
+        ]
       },
       {
         "id": 2,
@@ -7237,7 +7274,7 @@
     ],
     "metadata": {
       "created": "2025-08-17T14:33:11.524Z",
-      "updated": "2025-08-17T20:32:00.000Z",
+      "updated": "2025-08-20T17:30:33.462Z",
       "description": "Tasks related to Cursor Agent integration and setup"
     }
   }
