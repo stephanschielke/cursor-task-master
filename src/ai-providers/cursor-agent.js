@@ -12,6 +12,7 @@ import fs from 'fs';
 import { log } from '../../scripts/modules/utils.js';
 import { TimeoutManager } from '../utils/timeout-manager.js';
 import { jsonrepair } from 'jsonrepair';
+import { createCursorAgentProgressTracker, createRecursiveCursorAgentProgressTracker } from '../progress/cursor-agent-progress-tracker.js';
 
 export class CursorAgentProvider extends BaseAIProvider {
 	constructor() {
@@ -85,8 +86,17 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * @returns {Promise<object>} Generated text response
 	 */
 	async generateText(options, providerParams = {}) {
+		const progressTracker = options.progressTracker || providerParams.progressTracker;
+		
 		try {
-			const prompt = this.formatMessages(options.messages);
+			// Start progress tracking if enabled
+			if (progressTracker) {
+				progressTracker.updateProgress(0, 'Preparing cursor-agent request');
+			}
+
+			const prompt = this.formatMessages(options.messages, { 
+				mode: providerParams.mode || 'recursive' 
+			});
 			const model = options.model || providerParams.modelId || 'sonnet-4';
 			
 			const args = this.buildCursorAgentArgs({
@@ -98,22 +108,46 @@ export class CursorAgentProvider extends BaseAIProvider {
 
 			log('Calling cursor-agent with args:', { args, model });
 
-			const result = await this.executeCursorAgent(args, prompt);
+			if (progressTracker) {
+				progressTracker.updateProgress(0.1, 'Executing cursor-agent');
+			}
+
+			const result = await this.executeCursorAgent(args, prompt, progressTracker);
+			
+			if (progressTracker) {
+				progressTracker.updateProgress(0.9, 'Processing cursor-agent response');
+			}
 			
 			if (result.is_error) {
+				if (progressTracker) {
+					progressTracker.error(`Cursor Agent error: ${result.result}`);
+				}
 				throw new Error(`Cursor Agent error: ${result.result}`);
+			}
+
+			// Update progress with token information
+			const inputTokens = result.input_tokens || 0;
+			const outputTokens = result.output_tokens || 0;
+			
+			if (progressTracker) {
+				// Estimate cost (free for cursor-agent but show token usage)
+				progressTracker.updateTokensWithCost(inputTokens, outputTokens, 0, 0, false);
+				progressTracker.complete('Text generation completed');
 			}
 
 			return {
 				text: result.result,
 				usage: {
 					totalTokens: result.total_tokens || 0,
-					promptTokens: result.input_tokens || 0,
-					completionTokens: result.output_tokens || 0
+					promptTokens: inputTokens,
+					completionTokens: outputTokens
 				},
 				finishReason: 'stop'
 			};
 		} catch (error) {
+			if (progressTracker) {
+				progressTracker.error(`Generation failed: ${error.message}`);
+			}
 			log('cursor-agent generateText error:', error);
 			throw new Error(`Cursor Agent generateText failed: ${error.message}`);
 		}
@@ -129,13 +163,22 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * @returns {Promise<object>} Generated object response
 	 */
 	async generateObject(options, providerParams = {}) {
+		const progressTracker = options.progressTracker || providerParams.progressTracker;
+		
 		try {
-			const basePrompt = this.formatMessages(options.messages);
+			if (progressTracker) {
+				progressTracker.updateProgress(0, 'Preparing structured generation request');
+			}
+
+			const basePrompt = this.formatMessages(options.messages, { 
+				mode: providerParams.mode || 'recursive' 
+			});
 			const schemaPrompt = `${basePrompt}\n\nIMPORTANT: Please respond with valid JSON that matches this schema exactly:\n${JSON.stringify(options.schema, null, 2)}\n\nResponse (JSON only):`;
 			
 			const textResult = await this.generateText({
 				...options,
-				messages: schemaPrompt
+				messages: schemaPrompt,
+				progressTracker: progressTracker
 			}, providerParams);
 
 			// Extract JSON from the response
@@ -218,15 +261,20 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * Enhanced with timeout management and JSON repair from upstream
 	 * @param {Array<string>} args - Command arguments
 	 * @param {string} prompt - Prompt to send to cursor-agent
+	 * @param {object} [progressTracker] - Optional progress tracker for visual feedback
 	 * @returns {Promise<object>} Parsed response from cursor-agent
 	 */
-	async executeCursorAgent(args, prompt) {
+	async executeCursorAgent(args, prompt, progressTracker = null) {
 		const operation = 'cursor-agent execution';
 		const timeoutMs = 120000; // 2 minutes - increased for complex operations
 
+		if (progressTracker) {
+			progressTracker.nextPhase(); // Advance to execution phase
+		}
+
 		// Use enhanced timeout management from upstream
 		return await TimeoutManager.withTimeout(
-			this._executeCursorAgentCore(args, prompt),
+			this._executeCursorAgentCore(args, prompt, progressTracker),
 			timeoutMs,
 			operation
 		);
@@ -258,7 +306,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * Core cursor-agent execution logic with enhanced error recovery
 	 * @private
 	 */
-	async _executeCursorAgentCore(args, prompt) {
+	async _executeCursorAgentCore(args, prompt, progressTracker = null) {
 		return new Promise((resolve, reject) => {
 			const timeout = 25000; // Internal timeout for polling
 			const sessionName = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -273,6 +321,10 @@ export class CursorAgentProvider extends BaseAIProvider {
 				});
 
 				// Create detached tmux session
+				if (progressTracker) {
+					progressTracker.updateProgress(0.2, 'Creating tmux session');
+				}
+				
 				execSync(`tmux new-session -d -s ${sessionName}`, {
 					encoding: 'utf8',
 					timeout: 5000,
@@ -295,6 +347,10 @@ export class CursorAgentProvider extends BaseAIProvider {
 				log('DEBUG: Executing command in tmux:', command);
 				
 				// Send command to tmux session using single quotes to avoid escaping issues
+				if (progressTracker) {
+					progressTracker.updateProgress(0.3, 'Sending command to cursor-agent');
+				}
+				
 				execSync(`tmux send-keys -t ${sessionName} '${command}' Enter`, {
 					encoding: 'utf8',
 					timeout: 5000,
@@ -302,6 +358,9 @@ export class CursorAgentProvider extends BaseAIProvider {
 				});
 
 				// Poll for completion
+				if (progressTracker) {
+					progressTracker.updateProgress(0.4, 'Waiting for cursor-agent response');
+				}
 				let attempts = 0;
 				const maxAttempts = Math.ceil(timeout / 2000); // Check every 2 seconds
 				
@@ -811,5 +870,28 @@ ${basePrompt}
 
 EXECUTION APPROACH:
 Provide thorough complexity analysis with actionable recommendations for task optimization.`;
+	}
+
+	/**
+	 * Create a progress tracker for cursor-agent operations
+	 * @param {object} options - Progress tracker options
+	 * @returns {CursorAgentProgressTracker} Configured progress tracker
+	 */
+	createProgressTracker(options = {}) {
+		return createCursorAgentProgressTracker({
+			operationType: 'cursor-agent',
+			operationDescription: options.description || 'Processing cursor-agent request',
+			...options
+		});
+	}
+
+	/**
+	 * Create a recursive progress tracker for complex operations
+	 * @param {number} maxDepth - Maximum recursion depth
+	 * @param {string} operationType - Type of recursive operation
+	 * @returns {CursorAgentProgressTracker} Configured recursive progress tracker
+	 */
+	createRecursiveProgressTracker(maxDepth = 3, operationType = 'recursive-expand') {
+		return createRecursiveCursorAgentProgressTracker(maxDepth, operationType);
 	}
 }
