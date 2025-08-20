@@ -10,6 +10,8 @@ import { BaseAIProvider } from './base-provider.js';
 import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import { log } from '../../scripts/modules/utils.js';
+import { TimeoutManager } from '../utils/timeout-manager.js';
+import { jsonrepair } from 'jsonrepair';
 
 export class CursorAgentProvider extends BaseAIProvider {
 	constructor() {
@@ -213,13 +215,52 @@ export class CursorAgentProvider extends BaseAIProvider {
 
 	/**
 	 * Execute cursor-agent command using tmux for proper interactive handling
+	 * Enhanced with timeout management and JSON repair from upstream
 	 * @param {Array<string>} args - Command arguments
 	 * @param {string} prompt - Prompt to send to cursor-agent
 	 * @returns {Promise<object>} Parsed response from cursor-agent
 	 */
 	async executeCursorAgent(args, prompt) {
+		const operation = 'cursor-agent execution';
+		const timeoutMs = 120000; // 2 minutes - increased for complex operations
+
+		// Use enhanced timeout management from upstream
+		return await TimeoutManager.withTimeout(
+			this._executeCursorAgentCore(args, prompt),
+			timeoutMs,
+			operation
+		);
+	}
+
+	/**
+	 * Enhanced JSON parsing with automatic repair capability from upstream
+	 * @private
+	 */
+	_parseJSONWithRepair(jsonString, context = 'unknown') {
+		try {
+			return JSON.parse(jsonString);
+		} catch (error) {
+			log('DEBUG: Initial JSON parse failed, attempting repair...', { context, error: error.message });
+
+			try {
+				const repairedJson = jsonrepair(jsonString);
+				const parsed = JSON.parse(repairedJson);
+				log('INFO: Successfully repaired JSON from cursor-agent', { context });
+				return parsed;
+			} catch (repairError) {
+				log('DEBUG: JSON repair failed', { context, repairError: repairError.message });
+				return null;
+			}
+		}
+	}
+
+	/**
+	 * Core cursor-agent execution logic with enhanced error recovery
+	 * @private
+	 */
+	async _executeCursorAgentCore(args, prompt) {
 		return new Promise((resolve, reject) => {
-			const timeout = 25000; // 25 second timeout with force-kill at 16s
+			const timeout = 25000; // Internal timeout for polling
 			const sessionName = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 			
 			let tmpFile = null;
@@ -284,11 +325,9 @@ export class CursorAgentProvider extends BaseAIProvider {
 						// Pattern 1: Look for {"type":"result"...} format 
 						const resultMatch = output.match(/\{"type":"result".*?\}/s);
 						if (resultMatch) {
-							try {
-								parsed = JSON.parse(resultMatch[0]);
+							parsed = this._parseJSONWithRepair(resultMatch[0], 'result pattern');
+							if (parsed) {
 								log('DEBUG: Parsed JSON from result pattern');
-							} catch (e) {
-								log('DEBUG: Failed to parse result pattern JSON:', e.message);
 							}
 						}
 						
@@ -298,15 +337,11 @@ export class CursorAgentProvider extends BaseAIProvider {
 							for (let i = lines.length - 1; i >= 0; i--) {
 								const line = lines[i].trim();
 								if (line.startsWith('{') && line.endsWith('}')) {
-									try {
-										const testParsed = JSON.parse(line);
-										if (testParsed.type || testParsed.result || testParsed.content) {
-											parsed = testParsed;
-											log('DEBUG: Parsed JSON from line scan');
-											break;
-										}
-									} catch (e) {
-										// Continue trying other lines
+									const testParsed = this._parseJSONWithRepair(line, `line ${i}`);
+									if (testParsed && (testParsed.type || testParsed.result || testParsed.content)) {
+										parsed = testParsed;
+										log('DEBUG: Parsed JSON from line scan');
+										break;
 									}
 								}
 							}
