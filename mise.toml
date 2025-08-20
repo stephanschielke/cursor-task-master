@@ -1,3 +1,4 @@
 [tools]
 biome = "1.9.4"
 node = "22.18.0"
+tmux = "3.4"
