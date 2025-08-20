@@ -1,2 +1,3 @@
 [tools]
-node = "22.14.0"
+biome = "latest"
+node = "22.18.0"
