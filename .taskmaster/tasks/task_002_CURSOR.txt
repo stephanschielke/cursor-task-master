@@ -1,0 +1,242 @@
+# Task ID: 2
+# Title: Fix Research MCP Integration Timeouts Blocking SOC2 Work
+# Status: pending
+# Dependencies: None
+# Priority: high
+# Description: Resolve research function timeouts and stability issues that are disrupting SOC2 workflows
+# Details:
+
+**URGENT**: Fix research MCP integration timeouts that are blocking time-critical SOC2 implementation work.
+
+**Current Situation**:
+✅ cursor-agent working flawlessly for main tasks (expand, parse_prd, etc.)
+✅ cursor-agent saving money (no expensive API keys needed)  
+✅ Main TaskMaster operations fully functional
+❌ Research MCP integration causing unhandled timeouts
+❌ Research failures stopping SOC2 workflows when research needed
+❌ Web-search MCP communication issues causing workflow disruption
+
+**Core Problem**:
+Research function integration with web-search-sse MCP server has timeout/stability issues that disrupt workflows during SOC2-critical tasks. When research is needed for SOC2 work, timeouts break the entire workflow.
+
+**Solution Goals**:
+1. **Fix Research Timeouts**: Eliminate unhandled timeouts in research MCP calls
+2. **Reliable Research Integration**: Ensure research works consistently with cursor-agent
+3. **Graceful Research Fallbacks**: When web-search fails, research should degrade gracefully (not break workflows)
+4. **SOC2 Workflow Protection**: Never block SOC2 work due to research issues
+5. **Cost-Effective Solution**: Keep using cursor-agent, no expensive API keys required
+
+**Implementation Priorities**:
+1. **Immediate**: Add timeout handling and graceful fallbacks to research function
+2. **Short-term**: Improve web-search MCP communication stability  
+3. **Medium-term**: Add research bypass modes for critical SOC2 work
+4. **Long-term**: Optimize research integration for reliability
+
+**Success Criteria**:
+- Research timeouts never break SOC2 workflows
+- Research functions work reliably with cursor-agent
+- Graceful degradation when web-search MCP unavailable
+- SOC2 work can continue even when research has issues
+- No additional API costs or expensive integrations required
+
+**Context**: This is blocking time-critical SOC2 implementation where reliable AI assistance is essential but research failures are causing workflow disruptions.
+
+
+# Test Strategy:
+
+
+# Subtasks:
+## 1. Implement Cursor-Agent Process Persistence [pending]
+### Dependencies: None
+### Description: Keep cursor-agent processes alive between requests using intelligent tmux session management instead of kill/restart cycles
+### Details:
+**CORE PROBLEM**: Currently killing cursor-agent after each request, causing wasteful startup delays
+
+**SOLUTION**: Implement persistent process management that keeps cursor-agent CLI sessions warm
+
+**TECHNICAL APPROACH**:
+1. **Tmux Session Pool**: Maintain pool of persistent tmux sessions with cursor-agent ready
+2. **Session Lifecycle**: Smart session creation, reuse, and cleanup based on usage patterns  
+3. **Health Monitoring**: Check session health and restart only when necessary
+4. **Load Balancing**: Distribute requests across multiple warm sessions
+5. **Resource Management**: Monitor memory/CPU usage and optimize session count
+
+**IMPLEMENTATION**:
+- Update cursor-agent provider to use persistent sessions instead of spawn/kill
+- Add session pooling logic in src/ai-providers/cursor-agent.js
+- Implement session health checks and automatic recovery
+- Add configuration for session pool size and timeout settings
+- Create session cleanup routines for resource management
+
+**METRICS TO TRACK**:
+- Session startup time (currently ~5-15 seconds)
+- Session reuse rate vs cold starts  
+- Memory usage per persistent session
+- Session failure rate and recovery time
+
+**SUCCESS CRITERIA**:
+- 90%+ reduction in cursor-agent startup time
+- Sessions stay alive for 1+ hours with proper health monitoring
+- Automatic session recovery when processes crash
+- Configurable pool size based on usage patterns
+
+## 2. Build Comprehensive Agent Performance Monitoring [pending]
+### Dependencies: None
+### Description: Implement detailed metrics collection and monitoring for cursor-agent performance, quality, and resource usage
+### Details:
+**PROBLEM**: Zero visibility into cursor-agent performance - can't optimize what we can't measure
+
+**SOLUTION**: Build enterprise-grade monitoring system for cursor-agent operations
+
+**METRICS TO COLLECT**:
+1. **Performance Metrics**:
+   - Request start/end timestamps
+   - Total response time (end-to-end)
+   - Agent startup time vs warm session time
+   - Queue wait time and throughput
+
+2. **Quality Metrics**:
+   - Response relevance scoring (context match)
+   - Output completeness (expected vs actual)
+   - Error rate and failure types
+   - Token usage and efficiency
+
+3. **Resource Metrics**:
+   - Memory usage per session
+   - CPU utilization during processing
+   - Process health and stability
+   - Session lifetime and cleanup events
+
+4. **Integration Metrics**:
+   - Context gathering time and size
+   - Research integration success/failure rates
+   - Provider switching events and reasons
+   - Cache hit/miss rates
+
+**IMPLEMENTATION**:
+- Add structured logging to all cursor-agent interactions
+- Create metrics collection in ai-services-unified.js
+- Build performance dashboard/reporting system
+- Add real-time monitoring alerts for failures
+- Store metrics in lightweight local database (SQLite)
+
+**OBSERVABILITY FEATURES**:
+- Real-time agent health dashboard
+- Performance trend analysis over time
+- Quality scoring algorithms
+- Resource usage optimization recommendations
+
+**SUCCESS CRITERIA**:
+- 100% of cursor-agent calls tracked with detailed metrics
+- Performance trends visible over time
+- Quality scoring identifies low-performing operations
+- Resource usage optimized based on monitoring data
+
+## 3. Implement Session Caching & Connection Pooling [pending]
+### Dependencies: None
+### Description: Build intelligent session caching and connection pooling to optimize cursor-agent resource usage and response times
+### Details:
+**PROBLEM**: Each cursor-agent request creates new process and loses all context/state from previous interactions
+
+**SOLUTION**: Implement intelligent caching and pooling for optimal resource utilization
+
+**CACHING STRATEGY**:
+1. **Session State Caching**:
+   - Cache agent context between requests
+   - Persist conversation history and project context
+   - Smart cache invalidation based on code changes
+   - Memory-efficient context compression
+
+2. **Connection Pooling**:
+   - Pool of ready cursor-agent connections
+   - Dynamic pool sizing based on demand
+   - Connection health monitoring and rotation
+   - Load balancing across pool members
+
+3. **Context Management**:
+   - Intelligent context preloading for common operations
+   - Project-aware context caching (file changes, git status)
+   - Context cache warming based on usage patterns
+   - Efficient context serialization/deserialization
+
+**IMPLEMENTATION**:
+- Build session cache manager in src/utils/session-cache.js
+- Implement connection pool in src/ai-providers/cursor-agent.js
+- Add context persistence and loading mechanisms
+- Create cache invalidation logic based on filesystem/git changes
+- Build pool management with automatic scaling
+
+**OPTIMIZATION FEATURES**:
+- Predictive context preloading
+- Smart cache eviction policies (LRU with usage patterns)
+- Connection warmup during idle periods
+- Resource usage optimization based on monitoring data
+
+**CONFIGURATION**:
+- Pool size limits (min/max connections)
+- Cache size limits and eviction policies  
+- Context preloading strategies
+- Health check intervals and timeouts
+
+**SUCCESS CRITERIA**:
+- 80%+ cache hit rate for repeated operations
+- Connection pool maintains optimal performance
+- Memory usage stays within configurable limits
+- Context loading time reduced by 70%+
+
+## 4. Build Overseer Agent Decision Framework [pending]
+### Dependencies: None
+### Description: Create intelligent decision engine for overseer agent to determine when to scale, retry, abort, or change directions based on performance metrics
+### Details:
+**PROBLEM**: Need intelligent orchestration that can make strategic decisions about agent operations based on real performance data
+
+**SOLUTION**: Build decision framework that uses collected metrics to make smart operational decisions
+
+**DECISION CATEGORIES**:
+1. **Scaling Decisions**:
+   - When to scale up: High demand, slow response times, queue buildup
+   - When to scale down: Low utilization, excessive resource usage
+   - Dynamic pool size adjustment based on usage patterns
+
+2. **Quality Decisions**:
+   - When to retry: Poor quality responses, context mismatches
+   - When to switch providers: Consistent failures, performance degradation
+   - When to enhance context: Low relevance scores
+
+3. **Recovery Decisions**:
+   - When to abort: Excessive failures, timeout thresholds exceeded
+   - When to fallback: Primary provider unavailable, degraded performance
+   - When to restart: Session corruption, memory leaks detected
+
+4. **Optimization Decisions**:
+   - When to warm sessions: Usage pattern predictions
+   - When to cache invalidate: Code changes, context staleness
+   - When to preload context: Anticipated operations
+
+**DECISION FRAMEWORK**:
+- **Metrics Analysis Engine**: Real-time analysis of performance data
+- **Threshold Management**: Configurable thresholds for different decision triggers
+- **Pattern Recognition**: Learn from historical data to predict optimal actions
+- **Decision Logging**: Track all decisions and their outcomes for learning
+
+**IMPLEMENTATION**:
+- Create decision engine in src/utils/overseer-decisions.js
+- Implement threshold-based decision logic with configurable parameters
+- Add decision logging and outcome tracking
+- Build learning algorithm to optimize thresholds over time
+- Create decision explanation system for transparency
+
+**DECISION RULES EXAMPLES**:
+```
+IF avg_response_time > 30s AND queue_depth > 5 THEN scale_up()
+IF error_rate > 0.3 AND alternative_available THEN switch_provider()
+IF memory_usage > 80% AND sessions_idle > 3 THEN scale_down()
+IF quality_score < 0.7 AND context_age > 1h THEN refresh_context()
+```
+
+**SUCCESS CRITERIA**:
+- Decision engine makes optimal choices 90%+ of the time
+- System automatically recovers from common failure scenarios
+- Resource utilization optimized based on intelligent scaling
+- Decision transparency and logging for debugging and learning
+
