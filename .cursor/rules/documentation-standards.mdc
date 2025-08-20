@@ -1,0 +1,67 @@
+---
+globs: *.md
+description: Guidelines for producing accurate, concise, and useful documentation for all projects. Apply these standards whenever writing or editing Markdown documentation files.
+---
+
+# Documentation Standards – Intropy AI Platform
+
+Begin with a concise checklist (3-10 bullets) of documentation tasks to ensure all relevant aspects are addressed before writing or editing Markdown files.
+
+## Core Principles
+
+### 1. Prioritize Truthfulness
+- **Never fabricate information** – Document only verified and confirmed functionality.
+- **Verify with actual tools** – Use `terraform state list`, `gcloud` CLI, etc. and internet research with concrete sources to confirm claims rather than guessing.
+- **Differentiate facts from possibilities** – Clearly label sections as "Current Usage" or "Potential/Planned" when necessary. Don't invent plans if not asked for providing plans.
+- **Remove unverified claims** – After verifying, consult the user before deletion.
+- **Update outdated information** – Maintain documentation accuracy according to the current implementation. Verify changes if unsure.
+
+### 2. Emphasize Simplicity and Conciseness
+- **Be brief** – Add only requested content.
+- **Remove unnecessary sections** – Eliminate parts that do not meet these standards, confirming with the user as needed.
+- **Consolidate related content** – Merge related information into unified sections rather than introducing new ones.
+
+### 3. Maintain Consistent Structure and Formatting
+- **Use external links for clarity** – Reference official documentation for services, tools, or unclear terms.
+- **Explain concepts concisely** – Provide brief explanations with authoritative links.
+- **Apply descriptive link text** – e.g., `[Google Cloud Secret Manager](https://cloud.google.com/secret-manager)`.
+- **Specify code block languages** – Always add language identifiers to fenced code blocks (```yaml, ```bash, ```text, etc.).
+
+### 4. Content to Exclude
+
+#### Exclude Speculative Content
+- ❌ E.g. “Load balancers use this endpoint” (unless explicitly verified or user confirmed)
+- ❌ Unasked implementation details
+
+#### Exclude Unnecessary Complexity
+- ❌ Redundant sections that could be merged
+- ❌ Lengthy explanations of self-evident concepts
+- ❌ Mixed type definitions and examples in one place
+
+### 5. Content Verification Checklist
+Before publishing documentation, ensure:
+- [ ] All claims are verified and factual
+- [ ] All external links function and point to reputable sources
+- [ ] Examples use realistic, up-to-date values
+- [ ] Instructions have been personally tested
+- [ ] Speculative or planned content is clearly marked
+- [ ] Content remains concise and helpful
+
+After editing a documentation file, validate the changes in 1-2 lines: confirm that requirements are satisfied, and information is accurate and concise. If validation fails, self-correct before publishing.
+
+If the file does not exceed 500 lines, confirm with the user how to proceed.
+
+### 6. Common Pitfalls to Avoid
+- **Assuming usage scenarios** – Only describe integrations that are confirmed.
+- **Using placeholders or pseudo-types** – Supply examples with realistic values.
+- **Over-explaining** – Write concisely and remain focused.
+- **Omitting helpful external links** – Clarify unfamiliar concepts for readers.
+
+## Review Process
+
+When reviewing documentation, always:
+1. **Fact-check all content** – Can each statement be independently verified?
+2. **Test instructions** – Do commands and steps work as described?
+3. **Validate external links** – Are sources up-to-date and credible?
+4. **Review examples** – Do they match actual responses or outputs?
+5. **Remove speculative content** – Is everything presented as fact genuinely verified?
