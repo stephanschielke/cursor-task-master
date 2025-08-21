@@ -243,6 +243,30 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 	}
 
 	/**
+	 * Override BaseAIProvider's streamObject method for cursor-agent specific implementation
+	 * @param {object} options - Streaming options
+	 * @returns {Promise<object>} Streaming object result
+	 */
+	async streamObject(options) {
+		try {
+			// Use our generateObject method and wrap it in a stream-like interface
+			const result = await this.generateObject(options);
+			
+			// Return the expected stream object structure with partialObjectStream (not objectStream)
+			return {
+				partialObjectStream: async function* () {
+					yield result.object;
+				},
+				object: result.object,
+				usage: result.usage,
+				finishReason: result.finishReason || 'stop'
+			};
+		} catch (error) {
+			throw new Error(`Cursor Agent streamObject failed: ${error.message}`);
+		}
+	}
+
+	/**
 	 * Build schema instructions for cursor-agent from Zod schema
 	 * @param {object} schema - Zod schema object
 	 * @param {string} objectName - Name of the object
