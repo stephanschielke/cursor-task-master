@@ -1,6 +1,6 @@
 /**
  * src/ai-providers/cursor-agent.js
- * 
+ *
  * Implementation for interacting with Cursor models via cursor-agent CLI
  * This provider leverages your existing Cursor subscription and authentication
  * while providing full workspace context to AI operations.
@@ -87,22 +87,22 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 */
 	async generateText(options, providerParams = {}) {
 		const progressTracker = options.progressTracker || providerParams.progressTracker;
-		
+
 		try {
 			// Start progress tracking if enabled
 			if (progressTracker) {
 				progressTracker.updateProgress(0, 'Preparing cursor-agent request');
 			}
 
-			const prompt = this.formatMessages(options.messages, { 
-				mode: providerParams.mode || 'recursive' 
+			const prompt = this.formatMessages(options.messages, {
+				mode: providerParams.mode || 'recursive'
 			});
 			const model = options.model || providerParams.modelId || 'sonnet-4';
-			
+
 			const args = this.buildCursorAgentArgs({
 				model,
-				outputFormat: 'json',
-				withDiffs: true, // Use the new --with-diffs feature for better context
+				// Use default stream-json format (don't specify outputFormat)
+				withDiffs: false, // Disabled for now. Use the new --with-diffs feature for better context
 				apiKey: providerParams.apiKey
 			});
 
@@ -113,11 +113,11 @@ export class CursorAgentProvider extends BaseAIProvider {
 			}
 
 			const result = await this.executeCursorAgent(args, prompt, progressTracker);
-			
+
 			if (progressTracker) {
 				progressTracker.updateProgress(0.9, 'Processing cursor-agent response');
 			}
-			
+
 			if (result.is_error) {
 				if (progressTracker) {
 					progressTracker.error(`Cursor Agent error: ${result.result}`);
@@ -128,7 +128,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 			// Update progress with token information
 			const inputTokens = result.input_tokens || 0;
 			const outputTokens = result.output_tokens || 0;
-			
+
 			if (progressTracker) {
 				// Estimate cost (free for cursor-agent but show token usage)
 				progressTracker.updateTokensWithCost(inputTokens, outputTokens, 0, 0, false);
@@ -164,31 +164,51 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 */
 	async generateObject(options, providerParams = {}) {
 		const progressTracker = options.progressTracker || providerParams.progressTracker;
-		
+
 		try {
 			if (progressTracker) {
 				progressTracker.updateProgress(0, 'Preparing structured generation request');
 			}
 
-			const basePrompt = this.formatMessages(options.messages, { 
-				mode: providerParams.mode || 'recursive' 
-			});
-			const schemaPrompt = `${basePrompt}\n\nIMPORTANT: Please respond with valid JSON that matches this schema exactly:\n${JSON.stringify(options.schema, null, 2)}\n\nResponse (JSON only):`;
-			
+			// For JSON generation, bypass the formatMessages enhancements that make cursor-agent conversational
+			// Extract the raw prompt without TaskMaster-specific enhancements
+			const rawPrompt = this.extractBasePrompt(options.messages);
+
+			// Build schema instructions if schema is provided
+			let schemaInstructions = '';
+			if (options.schema && options.objectName) {
+				// Convert Zod schema to readable format for cursor-agent
+				schemaInstructions = this._buildSchemaInstructions(options.schema, options.objectName);
+			}
+
+			// Create explicit JSON-only instructions for cursor-agent
+			const schemaPrompt = `${rawPrompt}
+
+${schemaInstructions}
+
+IMPORTANT: Respond with ONLY valid JSON that matches the required structure above. Do not include any explanatory text, markdown formatting, or conversational responses. Return only the JSON object.
+
+Do not use any tools or commands. Do not provide explanations. Just return clean JSON.`;
+
 			const textResult = await this.generateText({
 				...options,
 				messages: schemaPrompt,
 				progressTracker: progressTracker
 			}, providerParams);
 
-			// Extract JSON from the response
-			let jsonStr = textResult.text;
-			
-			// Try to find JSON in the response if it's wrapped in other text
-			const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-			if (jsonMatch) {
-				jsonStr = jsonMatch[0];
-			}
+		// Extract JSON from the response
+		let jsonStr = textResult?.text;
+
+		// Check if we have valid text response
+		if (!jsonStr || typeof jsonStr !== 'string') {
+			throw new Error(`Invalid response from cursor-agent: expected text string, got ${typeof jsonStr}. Response: ${JSON.stringify(textResult)}`);
+		}
+
+		// Try to find JSON in the response if it's wrapped in other text
+		const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+		if (jsonMatch) {
+			jsonStr = jsonMatch[0];
+		}
 
 			try {
 				const parsedObject = JSON.parse(jsonStr);
@@ -199,13 +219,13 @@ export class CursorAgentProvider extends BaseAIProvider {
 				};
 			} catch (parseError) {
 				log('Failed to parse JSON response:', { jsonStr, parseError });
-				
+
 				// Try to repair the JSON
 				try {
 					const { jsonrepair } = await import('jsonrepair');
 					const repairedJson = jsonrepair(jsonStr);
 					const parsedObject = JSON.parse(repairedJson);
-					
+
 					log('Successfully repaired JSON response');
 					return {
 						object: parsedObject,
@@ -223,6 +243,52 @@ export class CursorAgentProvider extends BaseAIProvider {
 	}
 
 	/**
+	 * Build schema instructions for cursor-agent from Zod schema
+	 * @param {object} schema - Zod schema object
+	 * @param {string} objectName - Name of the object
+	 * @returns {string} Formatted schema instructions
+	 */
+	_buildSchemaInstructions(schema, objectName) {
+		try {
+			// For TaskMaster schemas, provide explicit JSON structure
+			if (objectName === 'newTaskData') {
+				return `Return a JSON object with exactly this structure:
+{
+  "title": "Clear, concise title for the task",
+  "description": "A one or two sentence description of the task",
+  "details": "In-depth implementation details, considerations, and guidance",
+  "testStrategy": "Detailed approach for verifying task completion",
+  "dependencies": null
+}
+
+All fields are required strings except dependencies which should be null for new tasks.`;
+			}
+
+			if (objectName === 'tasks_data' || objectName === 'generated_object') {
+				return `Return a properly structured JSON object that matches the expected format for the request.`;
+			}
+
+			// Generic schema instruction fallback
+			return `Return a valid JSON object with the appropriate structure for: ${objectName}`;
+		} catch (error) {
+			return `Return a valid JSON object.`;
+		}
+	}
+
+	mapModelIdToCursorAgent(modelId) {
+		const modelMap = {
+			'sonnet-4': 'sonnet',
+			'gpt-5': 'gpt-5',
+			'opus': 'opus',
+			// Keep original names as fallback
+			'sonnet': 'sonnet',
+			'gpt5': 'gpt-5'
+		};
+
+		return modelMap[modelId] || modelId;
+	}
+
+	/**
 	 * Build command line arguments for cursor-agent
 	 * @param {object} options - Options for building args
 	 * @param {string} options.model - Model to use
@@ -232,16 +298,17 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * @returns {Array<string>} Command line arguments
 	 */
 	buildCursorAgentArgs(options) {
+		const mappedModel = this.mapModelIdToCursorAgent(options.model || 'sonnet');
+
+		// Use model-specific subcommand instead of --model flag (this works better)
 		const args = [
 			'cursor-agent',
-			'--print', // Print responses to console for scripts
-			'--output-format', options.outputFormat || 'json'
+			mappedModel, // Use subcommand like 'sonnet', 'gpt-5', etc.
+			'--print' // Print responses to console for scripts
 		];
 
-		// Add model if specified
-		if (options.model) {
-			args.push('--model', options.model);
-		}
+		// Do NOT use --output-format=json as it causes hanging!
+		// The default 'stream-json' format works perfectly and provides structured output
 
 		// Add --with-diffs for better context (new feature!)
 		if (options.withDiffs !== false) {
@@ -280,245 +347,173 @@ export class CursorAgentProvider extends BaseAIProvider {
 		);
 	}
 
-	/**
-	 * Enhanced JSON parsing with automatic repair capability from upstream
-	 * @private
-	 */
-	_parseJSONWithRepair(jsonString, context = 'unknown') {
-		try {
-			return JSON.parse(jsonString);
-		} catch (error) {
-			log('DEBUG: Initial JSON parse failed, attempting repair...', { context, error: error.message });
-
-			try {
-				const repairedJson = jsonrepair(jsonString);
-				const parsed = JSON.parse(repairedJson);
-				log('INFO: Successfully repaired JSON from cursor-agent', { context });
-				return parsed;
-			} catch (repairError) {
-				log('DEBUG: JSON repair failed', { context, repairError: repairError.message });
-				return null;
-			}
-		}
-	}
-
-	/**
-	 * Core cursor-agent execution logic with enhanced error recovery
+		/**
+	 * Core cursor-agent execution logic with real-time stdout monitoring (Option 1 - Elegant)
 	 * @private
 	 */
 	async _executeCursorAgentCore(args, prompt, progressTracker = null) {
 		return new Promise((resolve, reject) => {
-			const timeout = 25000; // Internal timeout for polling
-			const sessionName = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-			
+			const sessionId = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 			let tmpFile = null;
+			let child = null;
+			let resultFound = false;
+
 			try {
-				log('Executing cursor-agent via tmux:', { 
-					sessionName,
-					command: args.join(' '), 
+				log('Executing cursor-agent directly:', {
+					sessionId,
+					command: args.join(' '),
 					promptLength: prompt.length,
 					promptPreview: prompt.slice(0, 200) + '...'
 				});
 
-				// Create detached tmux session
+				// Create temp file for prompt to avoid shell escaping issues
+				tmpFile = `/tmp/cursor-prompt-${sessionId}.txt`;
+				fs.writeFileSync(tmpFile, prompt, 'utf8');
+				log('DEBUG: Temp file created:', tmpFile);
+
 				if (progressTracker) {
-					progressTracker.updateProgress(0.2, 'Creating tmux session');
+					progressTracker.updateProgress(0.3, 'Starting cursor-agent process');
 				}
-				
-				execSync(`tmux new-session -d -s ${sessionName}`, {
-					encoding: 'utf8',
-					timeout: 5000,
-					cwd: process.cwd()
+
+				// Build command: cursor-agent sonnet --print "$(cat tempfile)"
+				const fullCommand = `${args.join(' ')} "$(cat ${tmpFile})"`;
+				log('DEBUG: Executing command:', fullCommand);
+
+				// Spawn cursor-agent process directly - much more elegant than tmux!
+				// Use bash for reliability but inherit zsh environment (mise tools, etc.)
+				child = spawn('bash', ['-c', fullCommand], {
+					stdio: ['ignore', 'pipe', 'pipe'], // ignore stdin, pipe stdout/stderr
+					cwd: process.cwd(),
+					env: {
+						...process.env, // Inherit current zsh environment with mise tools
+						NODE_NO_WARNINGS: '1',
+						// Ensure bash gets the same PATH and tools that zsh has loaded
+						SHELL: '/bin/bash' // But use bash for execution
+					}
 				});
 
-				// Write prompt to temporary file to avoid shell escaping issues
-				tmpFile = `/tmp/cursor-prompt-${sessionName}.txt`;
-				try {
-					fs.writeFileSync(tmpFile, prompt, 'utf8');
-					log('DEBUG: Temp file created:', tmpFile);
-				} catch (fileError) {
-					throw new Error(`Failed to create temp file: ${fileError.message}`);
-				}
+				let outputBuffer = '';
 
-				// Build command using temp file to avoid complex escaping
-				const command = `cat ${tmpFile} | ${args.join(' ')}`;
-				
-				// DEBUG: Log the exact command being executed
-				log('DEBUG: Executing command in tmux:', command);
-				
-				// Send command to tmux session using single quotes to avoid escaping issues
-				if (progressTracker) {
-					progressTracker.updateProgress(0.3, 'Sending command to cursor-agent');
-				}
-				
-				execSync(`tmux send-keys -t ${sessionName} '${command}' Enter`, {
-					encoding: 'utf8',
-					timeout: 5000,
-					cwd: process.cwd()
-				});
+				// Real-time stdout monitoring - this is the elegant part!
+				child.stdout.on('data', (data) => {
+					const chunk = data.toString();
+					outputBuffer += chunk;
 
-				// Poll for completion
-				if (progressTracker) {
-					progressTracker.updateProgress(0.4, 'Waiting for cursor-agent response');
-				}
-				let attempts = 0;
-				const maxAttempts = Math.ceil(timeout / 2000); // Check every 2 seconds
-				
-				const checkCompletion = () => {
-					attempts++;
-					
-					try {
-						// Capture the pane output
-						const output = execSync(`tmux capture-pane -t ${sessionName} -p`, {
-							encoding: 'utf8',
-							timeout: 5000,
-							cwd: process.cwd()
-						});
+					log('DEBUG: Received chunk length:', chunk.length, 'total buffer:', outputBuffer.length);
 
-						// Look for any JSON response in the output
-						log('DEBUG: tmux output:', output.slice(-500)); // Last 500 chars for debugging
-						
-						// Try multiple JSON extraction patterns
-						let parsed = null;
-						
-						// Pattern 1: Look for {"type":"result"...} format 
-						const resultMatch = output.match(/\{"type":"result".*?\}/s);
-						if (resultMatch) {
-							parsed = this._parseJSONWithRepair(resultMatch[0], 'result pattern');
-							if (parsed) {
-								log('DEBUG: Parsed JSON from result pattern');
-							}
-						}
-						
-						// Pattern 2: Look for any complete JSON object starting with {
-						if (!parsed) {
-							const lines = output.split('\n');
-							for (let i = lines.length - 1; i >= 0; i--) {
-								const line = lines[i].trim();
-								if (line.startsWith('{') && line.endsWith('}')) {
-									const testParsed = this._parseJSONWithRepair(line, `line ${i}`);
-									if (testParsed && (testParsed.type || testParsed.result || testParsed.content)) {
-										parsed = testParsed;
-										log('DEBUG: Parsed JSON from line scan');
-										break;
-									}
+					// Look for completion marker in real-time
+					if (chunk.includes('"type":"result"') && !resultFound) {
+						log('DEBUG: Found result marker, parsing completion...');
+
+						// Give a small buffer for the JSON to complete
+						setTimeout(() => {
+							if (!resultFound) {
+								resultFound = true;
+								const parsed = this._parseCompletionFromOutput(outputBuffer);
+
+								if (parsed) {
+									log('cursor-agent response received (direct):', {
+										resultLength: parsed.result?.length || 0,
+										isError: parsed.is_error,
+										sessionId: parsed.session_id
+									});
+
+									cleanup();
+									resolve(parsed);
+								} else {
+									cleanup();
+									reject(new Error('Failed to parse cursor-agent result despite finding marker'));
 								}
 							}
-						}
-						
+						}, 200); // Small buffer for JSON completion
+					}
+				});
+
+				child.stdout.on('end', () => {
+					log('DEBUG: stdout stream ended');
+				});
+
+				child.stderr.on('data', (data) => {
+					log('cursor-agent stderr:', data.toString());
+				});
+
+				child.on('close', (code) => {
+					if (!resultFound) {
+						log('DEBUG: Process closed with code', code, 'buffer length:', outputBuffer.length);
+						log('DEBUG: Final buffer content (last 300 chars):', outputBuffer.slice(-300));
+
+						// Process completed, try to parse final output
+						const parsed = this._parseCompletionFromOutput(outputBuffer);
+						cleanup();
+
 						if (parsed) {
-								
-								log('cursor-agent response received via tmux:', { 
-									type: parsed.type, 
-									isError: parsed.is_error,
-									duration: parsed.duration_ms,
-									sessionName
-								});
-
-								// Clean up tmux session and temp file
-								try {
-									execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
-								} catch (cleanupError) {
-									log('Warning: Failed to cleanup tmux session:', { sessionName, error: cleanupError.message });
-								}
-								
-								// Clean up temp file 
-								if (tmpFile) {
-									try {
-										fs.unlinkSync(tmpFile);
-									} catch (fileCleanupError) {
-										log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
-									}
-								}
-								
-								resolve(parsed);
-								return;
+							log('DEBUG: Successfully parsed result on close event');
+							resolve(parsed);
+						} else {
+							reject(new Error(`cursor-agent exited with code ${code}, no result found. Buffer length: ${outputBuffer.length}`));
 						}
+					}
+				});
 
-						// Force kill logic: If we see substantial output but no JSON, kill after 15 seconds
-						const hasSubstantialOutput = output.length > 200 && (
-							output.includes('Hello!') || 
-							output.includes('Perfect!') || 
-							output.includes('Read ') || 
-							attempts >= 8 // 16 seconds of polling
-						);
-						
-						if (hasSubstantialOutput && !parsed) {
-							log('DEBUG: Force killing cursor-agent - has substantial output but no clean JSON');
-							try {
-								execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
-							} catch (cleanupError) {
-								log('Warning: Failed to force cleanup tmux session:', { sessionName, error: cleanupError.message });
-							}
-							
-							// Clean up temp file 
-							if (tmpFile) {
-								try {
-									fs.unlinkSync(tmpFile);
-								} catch (fileCleanupError) {
-									log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
+				child.on('error', (error) => {
+					if (!resultFound) {
+						cleanup();
+						reject(new Error(`cursor-agent process error: ${error.message}`));
+					}
+				});
+
+				// Timeout handling
+				const timeout = setTimeout(() => {
+					if (!resultFound) {
+						log('DEBUG: Timeout reached, killing process...');
+						if (child && !child.killed) {
+							child.kill('SIGTERM');
+							setTimeout(() => {
+								if (child && !child.killed) {
+									child.kill('SIGKILL');
 								}
-							}
-							
-							// Try to extract any useful text content as fallback
-							const textContent = output
-								.replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI codes
-								.split('\n')
-								.filter(line => line.trim().length > 0)
-								.slice(-10) // Last 10 meaningful lines
-								.join('\n');
-								
-							resolve({
-								text: textContent || 'Response received but no clean JSON format',
-								usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
-								finishReason: 'force_stop'
-							});
-							return;
+							}, 5000);
 						}
+						cleanup();
+						reject(new Error('cursor-agent timeout after 120 seconds'));
+					}
+				}, 120000); // 2 minutes
 
-						// Check if we've hit timeout
-						if (attempts >= maxAttempts) {
-							throw new Error(`Timeout waiting for cursor-agent response after ${timeout}ms`);
-						}
+				const cleanup = () => {
+					clearTimeout(timeout);
 
-						// Continue polling
-						setTimeout(checkCompletion, 2000);
-						
-					} catch (error) {
-						// Clean up session and temp file on error
+					// Properly terminate the child process if it's still running
+					if (child && !child.killed) {
+						log('DEBUG: Terminating child process and removing listeners...');
+
+						// Remove all listeners to prevent hanging
+						child.removeAllListeners();
+
+						// Kill the process
+						child.kill('SIGTERM');
+					}
+
+					if (tmpFile) {
 						try {
-							execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
-						} catch (cleanupError) {
-							// Ignore cleanup errors
+							fs.unlinkSync(tmpFile);
+							log('DEBUG: Cleaned up temp file:', tmpFile);
+						} catch (fileCleanupError) {
+							log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
 						}
-						
-						// Clean up temp file 
-						if (tmpFile) {
-							try {
-								fs.unlinkSync(tmpFile);
-							} catch (fileCleanupError) {
-								// Ignore temp file cleanup errors
-							}
-						}
-						
-						reject(new Error(`cursor-agent tmux execution failed: ${error.message}`));
 					}
 				};
 
-				// Start polling after a brief delay
-				setTimeout(checkCompletion, 3000);
-				
-			} catch (error) {
-				log('cursor-agent tmux setup error:', error);
-				
-				// Clean up session and temp file if they were created
-				try {
-					execSync(`tmux kill-session -t ${sessionName}`, { timeout: 2000 });
-				} catch (cleanupError) {
-					// Ignore cleanup errors
+				if (progressTracker) {
+					progressTracker.updateProgress(0.4, 'Monitoring cursor-agent output in real-time');
 				}
-				
-				// Clean up temp file if it was created
+
+			} catch (error) {
+				log('cursor-agent direct execution setup error:', error);
+
+				// Clean up on setup error
+				if (child && !child.killed) {
+					child.kill('SIGTERM');
+				}
 				if (tmpFile) {
 					try {
 						fs.unlinkSync(tmpFile);
@@ -526,10 +521,121 @@ export class CursorAgentProvider extends BaseAIProvider {
 						// Ignore temp file cleanup errors
 					}
 				}
-				
-				reject(new Error(`cursor-agent tmux setup failed: ${error.message}`));
+
+				reject(new Error(`cursor-agent direct execution setup failed: ${error.message}`));
 			}
 		});
+	}
+
+	/**
+	 * Parse completion result from cursor-agent output
+	 * @private
+	 */
+	_parseCompletionFromOutput(output) {
+		const cleanOutput = output
+			.replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI color codes
+			.replace(/[\x00-\x1F\x7F]/g, ''); // Remove control characters
+
+		// Try to find complete JSON objects by finding balanced braces for {"type":"result"...}
+		const resultLineRegex = /"type":"result"[^}]*}/g;
+		let match;
+		while ((match = resultLineRegex.exec(cleanOutput)) !== null) {
+			// Find the start of the JSON object by looking backwards for opening brace
+			let startIdx = match.index;
+			while (startIdx > 0 && cleanOutput[startIdx] !== '{') {
+				startIdx--;
+			}
+
+			// Find the end by counting braces
+			let braceCount = 0;
+			let endIdx = startIdx;
+			for (let i = startIdx; i < cleanOutput.length; i++) {
+				if (cleanOutput[i] === '{') braceCount++;
+				else if (cleanOutput[i] === '}') braceCount--;
+
+				if (braceCount === 0) {
+					endIdx = i;
+					break;
+				}
+			}
+
+			if (braceCount === 0) {
+				const jsonStr = cleanOutput.substring(startIdx, endIdx + 1);
+				try {
+					const resultObj = JSON.parse(jsonStr);
+					if (resultObj.type === 'result') {
+						const isError = resultObj.is_error === true;
+						const actualResult = resultObj.result || '';
+
+						const parsed = {
+							result: actualResult,
+							is_error: isError,
+							usage: {
+								totalTokens: Math.round((resultObj.duration_api_ms || 0) / 100),
+								promptTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.7),
+								completionTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.3)
+							},
+							finishReason: 'stop',
+							session_id: resultObj.session_id,
+							request_id: resultObj.request_id
+						};
+
+						log('DEBUG: Successfully parsed cursor-agent result:', {
+							isError,
+							resultLength: actualResult.length,
+							sessionId: resultObj.session_id
+						});
+
+						return parsed;
+					}
+				} catch (e) {
+					log('DEBUG: Failed to parse JSON result:', e.message);
+					continue;
+				}
+			}
+		}
+
+		// Fallback: Look for lines with "type":"result"
+		const lines = cleanOutput.split('\n');
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+			if (trimmedLine.includes('"type":"result"') && trimmedLine.includes('"result":')) {
+				try {
+					const resultObj = JSON.parse(trimmedLine);
+					if (resultObj.type === 'result') {
+						const isError = resultObj.is_error === true;
+						const actualResult = resultObj.result || '';
+
+						const parsed = {
+							result: actualResult,
+							is_error: isError,
+							usage: {
+								totalTokens: Math.round((resultObj.duration_api_ms || 0) / 100),
+								promptTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.7),
+								completionTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.3)
+							},
+							finishReason: 'stop',
+							session_id: resultObj.session_id,
+							request_id: resultObj.request_id
+						};
+
+						log('DEBUG: Successfully parsed cursor-agent result via fallback:', {
+							isError,
+							resultLength: actualResult.length,
+							sessionId: resultObj.session_id
+						});
+
+						return parsed;
+					}
+				} catch (e) {
+					log('DEBUG: Failed to parse fallback result line:', e.message);
+					continue;
+				}
+			}
+		}
+
+		log('DEBUG: No valid result found in output');
+		return null;
 	}
 
 	/**
@@ -621,25 +727,6 @@ export class CursorAgentProvider extends BaseAIProvider {
 		}
 
 		return basePrompt;
-	}
-
-	/**
-	 * Check if cursor-agent is available and user is authenticated
-	 * @returns {Promise<boolean>} True if cursor-agent is ready to use
-	 */
-	async isAvailable() {
-		try {
-			const result = execSync('cursor-agent status', { 
-				encoding: 'utf8',
-				timeout: 10000 
-			});
-			
-			// Check if the status indicates the user is authenticated
-			return !result.includes('not authenticated') && !result.includes('login required');
-		} catch (error) {
-			log('cursor-agent availability check failed:', error);
-			return false;
-		}
 	}
 
 	// =================== OPERATION-SPECIFIC STRATEGY METHODS ===================
