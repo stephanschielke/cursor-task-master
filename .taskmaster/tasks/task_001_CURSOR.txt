@@ -1,6 +1,6 @@
 # Task ID: 1
 # Title: Complete cursor-agent CLI Provider integration
-# Status: pending
+# Status: done
 # Dependencies: None
 # Priority: high
 # Description: Finalize cursor-agent provider integration to eliminate API costs and use Cursor's subscription
@@ -37,4 +37,30 @@ Expected Benefits:
 
 
 # Test Strategy:
+
+
+# Subtasks:
+## 1. Implement recursive MCP prompt enhancement [done]
+### Dependencies: None
+### Description: Add formatMessages options parameter and operation detection for cursor-agent
+### Details:
+
+
+## 2. Add operation detection methods [done]
+### Dependencies: None
+### Description: Implement detectOperationType and buildEnhancedPrompt methods
+### Details:
+
+
+## 3. Implement recursive prompt strategies [done]
+### Dependencies: None
+### Description: Add buildTaskExpansionStrategy and buildPRDParsingStrategy with recursive MCP instructions
+### Details:
+
+
+## 4. Test recursive MCP integration [done]
+### Dependencies: None
+### Description: Verify cursor-agent can call TaskMaster MCP tools recursively and generate enhanced prompts
+### Details:
+
 
