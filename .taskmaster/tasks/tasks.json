@@ -7076,5 +7076,197 @@
       "updated": "2025-08-21T17:03:28.685Z",
       "description": "Tasks related to Cursor Agent integration and setup"
     }
+  },
+  "cursor-agent-integration": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Implement CursorAgentProvider Base Infrastructure",
+        "description": "Create the foundational CursorAgentProvider class that extends BaseAIProvider with cursor-agent CLI execution capabilities and tmux-based process isolation.",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Implement CursorAgentProvider class extending BaseAIProvider with: 1) tmux-based process isolation using unique session naming (cursor-agent-${timestamp}-${random}), 2) generateText() and generateObject() methods compatible with AI SDK, 3) Command execution: `cursor-agent <model> --print --with-diffs` with structured input/output, 4) Support for sonnet, gpt-5, opus model selection, 5) JSON response parsing with auto-repair for malformed responses, 6) Timeout management (120s default) with graceful process termination, 7) Session cleanup procedures to prevent tmux session leaks, 8) Error handling with fallback to API providers when cursor-agent unavailable. Include workspace context integration with --with-diffs flag for git status and file changes.",
+        "testStrategy": "Unit tests for provider instantiation, tmux session management, and command execution. Integration tests with actual cursor-agent CLI (if available) and mock tests for unavailable scenarios. Verify JSON parsing, timeout handling, and session cleanup. Test fallback behavior to API providers.",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Enhance MCP Server with FastMCP Integration",
+        "description": "Integrate FastMCP framework with TaskMaster MCP tools and implement direct function wrappers for cursor-agent provider operations.",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "details": "Integrate FastMCP framework into existing MCP server: 1) Update MCP server architecture to support FastMCP protocol, 2) Create direct function wrappers for all TaskMaster MCP tools (expand_task, parse_prd, add_task, update_task, analyze_complexity), 3) Implement cursor-agent provider integration within MCP tools, 4) Add recursive tool calling capabilities enabling AI-driven state modifications, 5) Implement progress tracking and telemetry collection for complex workflows, 6) Create execution context management for CursorAgent sessions with sessionId tracking, 7) Add structured error handling and recovery mechanisms, 8) Ensure backward compatibility with existing MCP tool implementations. Include provider selection logic with cursor-agent as default main model.",
+        "testStrategy": "Test FastMCP integration with existing MCP tools. Verify direct function wrappers maintain API compatibility. Test recursive tool calling scenarios with mock operations. Validate progress tracking and telemetry collection. Integration tests with cursor-agent provider.",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement Dynamic Configuration Management System",
+        "description": "Create configuration system supporting cursor-agent as primary provider with dynamic model selection and fallback mechanisms.",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "medium",
+        "details": "Implement comprehensive configuration management: 1) Extend existing .taskmaster/config.json to support cursor-agent provider settings, 2) Add dynamic provider selection with cursor-agent as default main model, 3) Implement model mapping system supporting cursor-agent CLI model names (sonnet, gpt-5, opus), 4) Create automatic detection and validation of cursor-agent availability using `cursor-agent --version`, 5) Implement graceful fallback to API providers (OpenAI, Anthropic, etc.) when cursor-agent unavailable, 6) Add environment-based configuration for cursor-agent session management, 7) Include cursor-agent authentication status checking, 8) Create configuration validation and health checking utilities. Support both CLI and MCP configuration updates.",
+        "testStrategy": "Test configuration loading and validation. Verify cursor-agent detection and fallback logic. Test model mapping and provider selection. Mock cursor-agent unavailable scenarios to verify fallback behavior. Integration tests with actual cursor-agent CLI installation.",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Develop Recursive MCP Operation Framework",
+        "description": "Build framework for recursive MCP operations with hardware-limited recursion depth and autonomous task optimization capabilities.",
+        "status": "pending",
+        "dependencies": [
+          2,
+          3
+        ],
+        "priority": "high",
+        "details": "Create recursive MCP operation framework: 1) Implement RecursiveMCPOperation schema with operationType, recursionDepth tracking, and maxRecursionDepth limits, 2) Add hardware-based recursion limits using system resource monitoring (CPU/Memory), 3) Implement recursive workflow orchestration for expand_task, scope_up_task, scope_down_task operations, 4) Create autonomous task optimization engine that can recursively call MCP tools to modify TaskMaster state, 5) Add circuit breaker patterns to prevent infinite recursion loops, 6) Implement progress callbacks for recursive operation visibility, 7) Create error recovery mechanisms with continue_next_iteration strategy, 8) Add recursive dependency resolution and task reorganization capabilities. Include real-time complexity analysis integration.",
+        "testStrategy": "Unit tests for recursion depth tracking and limits. Test circuit breaker functionality with mock infinite loops. Verify progress tracking for nested recursive operations. Integration tests with actual TaskMaster state modifications. Load tests to verify hardware-based limits.",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Advanced Progress Tracking and Visual Feedback",
+        "description": "Create real-time progress tracking system with visual feedback for complex recursive workflows and long-running cursor-agent operations.",
+        "status": "pending",
+        "dependencies": [
+          4
+        ],
+        "priority": "medium",
+        "details": "Implement comprehensive progress tracking system: 1) Create ProgressTracker class with real-time updates for cursor-agent operations, 2) Add visual progress indicators for CLI operations using ASCII progress bars and spinners, 3) Implement nested progress tracking for recursive MCP operations with hierarchical display, 4) Create WebSocket-based progress updates for MCP clients (Cursor IDE integration), 5) Add operation timing and performance metrics collection, 6) Implement progress persistence for long-running operations that can be resumed, 7) Create progress callback system for recursive workflows with depth-aware visualization, 8) Add telemetry integration for tracking cursor-agent usage patterns and performance metrics. Include timeout visualization and estimated completion times.",
+        "testStrategy": "Test progress tracking accuracy with mock operations. Verify visual feedback rendering in CLI and MCP contexts. Test nested progress tracking with recursive operations. Integration tests with WebSocket connections. Performance tests for progress update overhead.",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Build JSON Auto-Repair and Error Recovery System",
+        "description": "Implement robust JSON parsing with auto-repair capabilities and comprehensive error recovery for malformed cursor-agent responses.",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "medium",
+        "details": "Create comprehensive error handling system: 1) Implement JSONAutoRepair utility that can fix common malformed JSON issues from cursor-agent responses, 2) Add streaming JSON parser that can handle partial responses and continue parsing, 3) Create error recovery strategies for different cursor-agent failure modes (timeout, authentication, model unavailable), 4) Implement retry mechanisms with exponential backoff for transient failures, 5) Add graceful degradation when JSON repair fails, falling back to text processing, 6) Create comprehensive error logging and diagnostics for cursor-agent operations, 7) Implement health monitoring for cursor-agent processes with automatic recovery, 8) Add validation for cursor-agent response structure and content quality. Include fallback parsing strategies for edge cases.",
+        "testStrategy": "Unit tests for JSON repair with various malformed JSON examples. Test error recovery scenarios with mock cursor-agent failures. Verify retry mechanisms and exponential backoff. Integration tests with actual malformed cursor-agent responses. Stress tests for error handling under load.",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Advanced PRD Processing with Recursive Optimization",
+        "description": "Create comprehensive PRD processing system that recursively expands, analyzes complexity, and optimizes task structures using cursor-agent integration.",
+        "status": "pending",
+        "dependencies": [
+          4,
+          5,
+          6
+        ],
+        "priority": "high",
+        "details": "Build advanced PRD processing engine: 1) Enhance parse_prd MCP tool to use cursor-agent with full workspace context (--with-diffs), 2) Implement recursive task expansion that automatically calls expand_task on complex tasks, 3) Add autonomous complexity analysis that recursively optimizes task structure using scope_up_task/scope_down_task, 4) Create intelligent dependency resolution that can reorganize tasks based on analysis, 5) Implement workspace-aware task generation using git diffs and project files, 6) Add recursive workflow orchestration for PRD-to-finished-product automation, 7) Create task hierarchy optimization with automatic subtask management, 8) Implement real-time task validation and structure improvement. Include progress tracking for multi-phase PRD processing.",
+        "testStrategy": "Test PRD parsing with various complexity levels. Verify recursive expansion and optimization workflows. Integration tests with actual workspace context and git diffs. Test autonomous dependency resolution. End-to-end tests from PRD input to optimized task structure.",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Create Autonomous Agent Workflow Engine",
+        "description": "Build autonomous workflow engine that can execute complete development workflows overnight using recursive cursor-agent operations and MCP state modifications.",
+        "status": "pending",
+        "dependencies": [
+          7
+        ],
+        "priority": "high",
+        "details": "Implement autonomous agent workflow engine: 1) Create WorkflowOrchestrator that can execute multi-phase development workflows autonomously, 2) Implement autonomous task execution using cursor-agent with recursive MCP state modifications, 3) Add intelligent workflow planning that can adapt based on intermediate results, 4) Create autonomous code generation integration using cursor-agent workspace context, 5) Implement self-monitoring and course correction for long-running workflows, 6) Add workflow checkpointing and resume capabilities for overnight operations, 7) Create governance controls for autonomous operations with configurable limits and human intervention points, 8) Implement distributed workflow capabilities for complex multi-component development. Include comprehensive logging and audit trails for autonomous operations.",
+        "testStrategy": "Test autonomous workflow execution with mock development scenarios. Verify workflow checkpointing and resume functionality. Integration tests with actual code generation and task modifications. Test governance controls and human intervention points. End-to-end tests for complete PRD-to-product workflows.",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Core CursorAgentProvider Integration",
+        "description": "Enhance the existing CursorAgentProvider class with robust tmux-based execution, JSON auto-repair capabilities, timeout management, and proper error recovery mechanisms to enable all cursor-agent CLI operations.",
+        "details": "Build comprehensive CursorAgentProvider integration: 1) Enhance existing CursorAgentProvider class with robust tmux session management using unique session names (cursor-agent-${timestamp}-${processId}) and proper cleanup on termination, 2) Implement advanced JSON auto-repair system that can handle malformed cursor-agent responses by detecting and fixing common JSON syntax errors, partial responses, and encoding issues, 3) Add comprehensive timeout management with configurable timeouts per operation type (120s for text generation, 300s for complex workflows) and graceful termination of hanging processes, 4) Implement multi-layered error recovery: connection failures with exponential backoff, authentication errors with credential refresh, model unavailability with automatic fallback to alternative models, 5) Add cursor-agent CLI health monitoring with periodic availability checks and automatic provider failover, 6) Implement streaming response handling for long-running operations with real-time progress updates, 7) Create comprehensive logging and telemetry collection for cursor-agent operations including execution time, success rates, and error categorization, 8) Add workspace-aware context injection using git diffs and project structure for enhanced cursor-agent responses, 9) Implement response caching for repeated operations to improve performance and reduce cursor-agent load, 10) Create comprehensive configuration validation for cursor-agent settings and model availability.",
+        "testStrategy": "Unit tests for tmux session management, creation, and cleanup with mock cursor-agent scenarios. Test JSON auto-repair with various malformed JSON examples including truncated responses, missing brackets, and encoding issues. Verify timeout handling with mock hanging processes and graceful termination. Test error recovery mechanisms with simulated cursor-agent failures including network timeouts, authentication errors, and model unavailability. Integration tests with actual cursor-agent CLI installation testing all supported models (sonnet, gpt-5, opus). Test workspace context injection with sample git repositories and verify enhanced response quality. Performance tests for response caching and concurrent operation handling. End-to-end tests covering complete cursor-agent workflows from initialization to cleanup.",
+        "status": "pending",
+        "dependencies": [
+          1,
+          6
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Recursive MCP Integration Framework",
+        "description": "Create the recursive MCP calling capabilities that allow cursor-agent to dynamically call TaskMaster MCP tools during operation, enabling autonomous task optimization and self-governing workflows.",
+        "details": "Build comprehensive recursive MCP integration framework: 1) Create RecursiveMCPClient class that extends existing MCP tools with recursive calling capabilities, enabling cursor-agent to dynamically invoke expand_task, scope_up_task, scope_down_task, add_task, and update_task during operation, 2) Implement autonomous task optimization engine that can analyze TaskMaster state and recursively modify task structures using MCP tools, with intelligent depth limiting based on task complexity and system resources, 3) Add MCP state synchronization system that maintains consistency during recursive operations, including transaction-like rollback capabilities for failed recursive workflows, 4) Create self-governing workflow execution that can autonomously expand underscoped tasks, scope down overscoped tasks, and add missing dependencies discovered during analysis, 5) Implement recursive operation telemetry and progress tracking that provides visibility into nested MCP calls and their effects on TaskMaster state, 6) Add circuit breaker patterns and recursive depth limits (default: 5 levels) to prevent infinite recursion loops, 7) Create workspace context integration that allows recursive MCP calls to leverage cursor-agent's --with-diffs capability for enhanced task generation and optimization, 8) Implement autonomous dependency resolution that can recursively reorganize task structures based on discovered relationships and requirements, 9) Add MCP operation queuing and batching for efficient recursive workflows that minimize state conflicts, 10) Create comprehensive logging and audit trail for all recursive MCP modifications to TaskMaster state.",
+        "testStrategy": "Unit tests for RecursiveMCPClient with mock MCP tool responses and recursive depth tracking. Test autonomous task optimization scenarios with various task complexity levels. Verify circuit breaker functionality with intentionally recursive scenarios. Integration tests with actual TaskMaster state modifications using expand_task, scope_up_task, and scope_down_task recursively. Test MCP state synchronization and rollback capabilities with mock failures. Verify workspace context integration with cursor-agent --with-diffs functionality. Load tests for recursive operation performance and resource usage. End-to-end tests demonstrating complete autonomous task optimization workflows from initial task structure to optimized, dependency-resolved final state. Test recursive operation telemetry accuracy and progress tracking visibility.",
+        "status": "pending",
+        "dependencies": [
+          2,
+          4,
+          7,
+          8,
+          9
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement Advanced Progress Tracking System",
+        "description": "Create comprehensive visual progress tracking for cursor-agent operations with real-time feedback, token usage monitoring, recursive operation depth tracking, and multi-step progress indicators that integrates with existing progress framework.",
+        "details": "Build advanced progress tracking system: 1) Extend existing ProgressTracker class from Task 5 to support cursor-agent operations with real-time visual feedback using enhanced ASCII progress bars, spinners, and multi-line displays, 2) Implement token usage monitoring that tracks input/output tokens, cost calculations, and rate limiting for cursor-agent operations with live updates in CLI and MCP contexts, 3) Create recursive operation depth tracking that visualizes nested MCP calls, task expansions, and autonomous workflows with hierarchical progress trees showing parent-child relationships, 4) Add multi-step progress indicators for complex workflows including PRD processing, recursive task optimization, and autonomous agent operations with percentage completion and ETA calculations, 5) Implement WebSocket-based real-time progress streaming for Cursor IDE integration with structured progress events, 6) Create progress persistence and resumption capabilities for long-running operations with checkpoint management, 7) Add performance metrics collection including operation timing, resource usage, and throughput monitoring with historical trending, 8) Implement progress aggregation for parallel operations running in tmux sessions with consolidated status reporting, 9) Create customizable progress themes and verbosity levels for different user preferences and contexts, 10) Add progress export capabilities for workflow analysis and debugging with detailed execution logs and timing breakdowns.",
+        "testStrategy": "Test progress tracking accuracy with mock cursor-agent operations of varying complexity. Verify real-time visual feedback rendering in both CLI and MCP contexts with different terminal sizes and capabilities. Test token usage monitoring with mock API responses containing usage data. Integration tests for recursive operation depth tracking using actual MCP recursive calls. Test multi-step progress indicators with simulated long-running PRD processing workflows. Verify WebSocket progress streaming with mock Cursor IDE connections. Test progress persistence and resumption with interrupted operations. Performance tests to ensure progress tracking overhead remains under 5% of total operation time. Load tests with multiple parallel tmux sessions to verify progress aggregation. End-to-end tests integrating with existing progress framework from upstream enhancements.",
+        "status": "pending",
+        "dependencies": [
+          5,
+          9,
+          10
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Enhance Error Recovery and Fallback Strategy",
+        "description": "Implement robust error handling with automatic JSON repair, retry logic with exponential backoff, timeout detection, and seamless fallback to API providers when cursor-agent is unavailable.",
+        "details": "Build comprehensive error recovery system: 1) Enhance existing JSONAutoRepair utility from Task 6 with advanced repair strategies including bracket matching, quote escaping, and partial response reconstruction for cursor-agent outputs, 2) Implement intelligent retry logic with exponential backoff (initial 1s, max 30s) and jitter to prevent thundering herd effects during cursor-agent failures, 3) Create timeout detection and recovery system that can detect hung cursor-agent processes and gracefully terminate tmux sessions while preserving partial results, 4) Build seamless provider fallback mechanism that automatically switches to API providers (OpenAI, Anthropic) when cursor-agent is unavailable, maintaining operation continuity, 5) Implement error classification system that categorizes failures (network, authentication, model unavailable, JSON malformed) and applies appropriate recovery strategies, 6) Add circuit breaker pattern to prevent cascading failures during extended cursor-agent outages, 7) Create error reporting and metrics collection for production monitoring and debugging, 8) Implement graceful degradation modes that can operate with reduced functionality when primary systems fail",
+        "testStrategy": "Unit tests for enhanced JSON repair with complex malformed responses including nested objects, arrays, and streaming data. Test retry logic with mock cursor-agent failures and verify exponential backoff timing. Create timeout scenarios with hanging processes and verify graceful termination. Test fallback provider switching with cursor-agent unavailable scenarios. Integration tests with actual cursor-agent failures and recovery. Load tests for circuit breaker functionality under sustained failures. End-to-end tests verifying operation continuity during provider transitions.",
+        "status": "pending",
+        "dependencies": [
+          1,
+          6,
+          9
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Create Autonomous PRD-to-Product Workflow",
+        "description": "Implement end-to-end autonomous workflows that can take complex PRDs and recursively generate, optimize, and execute complete development implementations overnight.",
+        "details": "Build comprehensive autonomous PRD-to-product workflow system: 1) Create AutonomousPRDProcessor that integrates with Task 7's advanced PRD processing to automatically parse complex PRDs and generate initial task structures, 2) Implement recursive task optimization engine that uses Task 10's RecursiveMCPClient to continuously expand, analyze, and optimize task structures through multiple optimization passes, 3) Create autonomous execution orchestrator that leverages Task 8's WorkflowOrchestrator to execute complete development workflows including code generation, testing, and validation, 4) Add intelligent workflow planning that can analyze project context, understand dependencies, and create execution plans that maximize parallelization while respecting task dependencies, 5) Implement self-governing execution with Task 11's progress tracking to monitor workflow execution, detect bottlenecks, and make autonomous adjustments to optimize completion time, 6) Create overnight execution mode with robust checkpointing, resume capabilities, and error recovery using Task 12's fallback strategies, 7) Add autonomous code review integration that can validate generated code against requirements and trigger rework cycles when needed, 8) Implement adaptive learning system that improves workflow efficiency based on previous execution patterns and success rates, 9) Create comprehensive reporting and audit trails that document the entire PRD-to-product transformation process for review and compliance.",
+        "testStrategy": "Test autonomous PRD processing with complex multi-feature PRDs of varying sizes and complexity levels. Verify recursive task optimization produces well-structured, dependency-aware task hierarchies. Test overnight execution mode with mock 8-12 hour workflows including checkpoint creation, interruption recovery, and resume functionality. Integration tests with actual code generation workflows from simple to complex applications. Test adaptive learning by running similar PRDs multiple times and verifying improved efficiency metrics. Stress tests for concurrent workflow execution and resource management. End-to-end validation tests that verify complete PRD-to-working-product transformation including code quality, test coverage, and functional correctness.",
+        "status": "pending",
+        "dependencies": [
+          7,
+          8,
+          10,
+          11,
+          12
+        ],
+        "priority": "medium",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-21T17:41:12.804Z",
+      "updated": "2025-08-21T18:37:54.235Z",
+      "description": "Tasks for cursor-agent-integration context"
+    }
   }
 }

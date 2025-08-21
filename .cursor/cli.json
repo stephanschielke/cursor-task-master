@@ -1,18 +1,2 @@
 {
-  "version": 1.1,
-  "editor": {
-    "vimMode": false
-  },
-  "hasChangedDefaultModel": true,
-  "permissions": {
-    "allow": [
-      "Shell(ls)"
-    ],
-    "deny": []
-  },
-  "privacyCache": {
-    "ghostMode": true,
-    "privacyMode": 1,
-    "updatedAt": 1755729434394
-  }
 }
