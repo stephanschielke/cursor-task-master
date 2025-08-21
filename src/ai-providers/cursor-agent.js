@@ -288,6 +288,33 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 All fields are required strings except dependencies which should be null for new tasks.`;
 			}
 
+			// Check if this looks like PRD parsing based on schema structure
+			if (schema && schema.properties && schema.properties.tasks && schema.properties.metadata) {
+				return `Return a JSON object with exactly this structure (do NOT wrap in "${objectName}" or any other key):
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Task title",
+      "description": "Brief task description", 
+      "details": "Detailed implementation guidance",
+      "testStrategy": "How to test and verify completion",
+      "priority": "high",
+      "dependencies": [],
+      "status": "pending"
+    }
+  ],
+  "metadata": {
+    "projectName": "Project name from the PRD",
+    "totalTasks": 1,
+    "sourceFile": "Source PRD filename",
+    "generatedAt": "${new Date().toISOString()}"
+  }
+}
+
+CRITICAL: Return the object directly with "tasks" and "metadata" as top-level keys. Do NOT wrap it in a "${objectName}" key.`;
+			}
+
 			if (objectName === 'tasks_data' || objectName === 'generated_object') {
 				return `Return a properly structured JSON object that matches the expected format for the request.`;
 			}
