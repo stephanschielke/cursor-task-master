@@ -1,0 +1,21 @@
+{
+	"meta": {
+		"generatedAt": "2025-08-21T01:29:43.737Z",
+		"tasksAnalyzed": 1,
+		"totalTasks": 6,
+		"analysisCount": 1,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 4,
+			"taskTitle": "Create date formatting utility function",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break down the date formatting utility into focused implementation phases: input validation and error handling, core format implementations (short, long, ISO), relative time calculation logic, comprehensive testing with edge cases, and JSDoc documentation. Consider modern JavaScript internationalization features, timezone handling best practices, and integration with the existing Jest testing framework at 80% coverage threshold.",
+			"reasoning": "Medium complexity (6/10) due to multiple format requirements, edge case handling, timezone considerations, and internationalization support. The task involves systematic implementation of date formatting with robust error handling, comprehensive testing (matching project's 80% coverage standards), and proper documentation. Requires 5 subtasks to cover validation, core formats, relative time logic, testing, and documentation phases. Modern JavaScript provides native Intl.DateTimeFormat and Date methods, reducing external dependencies but requiring careful timezone and locale handling."
+		}
+	]
+}
