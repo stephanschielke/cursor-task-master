@@ -88,6 +88,9 @@ dev-debug.log
 *.sln
 *.sw?
 
+# Personal project settings
+.vscode/settings.json
+
 # VS Code extension test files
 .vscode-test/
 apps/extension/.vscode-test/
