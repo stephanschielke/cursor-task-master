@@ -16,7 +16,7 @@
 	"scripts": {
 		"test": "node --experimental-vm-modules node_modules/.bin/jest",
 		"test:fails": "node --experimental-vm-modules node_modules/.bin/jest --onlyFailures",
-		"test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
+		"test:watcah": "node --experimental-vm-modules node_modules/.bin/jest --watch",
 		"test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
 		"test:e2e": "./tests/e2e/run_e2e.sh",
 		"test:e2e-report": "./tests/e2e/run_e2e.sh --analyze-log",

@@ -226,6 +226,13 @@ jest.unstable_mockModule('../../src/ai-providers/index.js', () => ({
 		generateObject: jest.fn(),
 		getRequiredApiKeyName: jest.fn(() => 'GEMINI_API_KEY'),
 		isRequiredApiKey: jest.fn(() => false)
+	})),
+	CursorAgentProvider: jest.fn(() => ({
+		generateText: jest.fn(),
+		streamText: jest.fn(),
+		generateObject: jest.fn(),
+		getRequiredApiKeyName: jest.fn(() => null),
+		isRequiredApiKey: jest.fn(() => false)
 	}))
 }));
 

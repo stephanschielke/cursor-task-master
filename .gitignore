@@ -100,3 +100,4 @@ apps/extension/vsix-build/
 
 # Temp monitoring stuff
 /monitoring/
+/tests/integration/cli/test-*

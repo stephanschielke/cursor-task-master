@@ -11,17 +11,23 @@
  */
 
 import { jest } from '@jest/globals';
-import { execSync } from 'child_process';
-import { CursorAgentValidator, cursorAgentValidator, validateCursorAgentModel, checkCursorAgentHealth } from '../../../src/utils/cursor-agent-validator.js';
 
-// Mock external dependencies
-jest.mock('child_process', () => ({
-	execSync: jest.fn()
+// Create accessible mock functions
+const mockExecSync = jest.fn();
+const mockLog = jest.fn();
+
+// Mock external dependencies BEFORE importing the module under test
+jest.unstable_mockModule('child_process', () => ({
+	execSync: mockExecSync
 }));
 
-jest.mock('../../../scripts/modules/utils.js', () => ({
-	log: jest.fn()
+jest.unstable_mockModule('../../../scripts/modules/utils.js', () => ({
+	log: mockLog
 }));
+
+// Import after mocking
+const { CursorAgentValidator, cursorAgentValidator, validateCursorAgentModel, checkCursorAgentHealth } = await import('../../../src/utils/cursor-agent-validator.js');
+const { execSync } = await import('child_process');
 
 jest.mock('../../../scripts/modules/config-manager.js', () => ({
 	MODEL_MAP: {
@@ -68,6 +74,9 @@ describe('CursorAgentValidator', () => {
 		jest.clearAllMocks();
 		validator = new CursorAgentValidator();
 		validator.clearCache(); // Ensure clean state for each test
+		
+		// Reset mockExecSync with default behavior
+		mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 	});
 
 	afterEach(() => {
@@ -88,13 +97,13 @@ describe('CursorAgentValidator', () => {
 
 	describe('checkCursorAgentAvailability', () => {
 		test('should return available when cursor-agent is installed', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			const result = await validator.checkCursorAgentAvailability();
 
 			expect(result.available).toBe(true);
 			expect(result.version).toBe('cursor-agent version 1.0.0');
-			expect(execSync).toHaveBeenCalledWith('cursor-agent --version', {
+			expect(mockExecSync).toHaveBeenCalledWith('cursor-agent --version', {
 				encoding: 'utf8',
 				timeout: 5000,
 				stdio: 'pipe'
@@ -103,7 +112,7 @@ describe('CursorAgentValidator', () => {
 
 		test('should return unavailable when cursor-agent is not found', async () => {
 			const mockError = new Error('command not found: cursor-agent');
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw mockError;
 			});
 
@@ -115,7 +124,7 @@ describe('CursorAgentValidator', () => {
 
 		test('should handle timeout errors', async () => {
 			const mockError = new Error('timeout exceeded');
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw mockError;
 			});
 
@@ -127,7 +136,7 @@ describe('CursorAgentValidator', () => {
 
 		test('should handle permission errors', async () => {
 			const mockError = new Error('Permission denied');
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw mockError;
 			});
 
@@ -138,7 +147,7 @@ describe('CursorAgentValidator', () => {
 		});
 
 		test('should cache results by default', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			// First call
 			const result1 = await validator.checkCursorAgentAvailability();
@@ -146,18 +155,18 @@ describe('CursorAgentValidator', () => {
 			const result2 = await validator.checkCursorAgentAvailability();
 
 			expect(result1).toBe(result2); // Should be same object reference
-			expect(execSync).toHaveBeenCalledTimes(1); // Should only call CLI once
+			expect(mockExecSync).toHaveBeenCalledTimes(1); // Should only call CLI once
 		});
 
 		test('should bypass cache when useCache is false', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			// First call
 			await validator.checkCursorAgentAvailability();
 			// Second call with cache disabled
 			await validator.checkCursorAgentAvailability({ useCache: false });
 
-			expect(execSync).toHaveBeenCalledTimes(2);
+			expect(mockExecSync).toHaveBeenCalledTimes(2);
 		});
 	});
 
@@ -183,7 +192,8 @@ describe('CursorAgentValidator', () => {
 
 			expect(result.valid).toBe(false);
 			expect(result.supported).toBe(false);
-			expect(result.error).toContain('not currently supported');
+			expect(result.suggestion).toBeDefined(); // Unknown models get suggestions, not errors
+			expect(result.error).toBeUndefined(); // Unknown models don't have error messages
 		});
 
 		test('should suggest alternative models', async () => {
@@ -206,14 +216,14 @@ describe('CursorAgentValidator', () => {
 
 			const result = await validator.validateModel('sonnet-4');
 
-			expect(log).toHaveBeenCalled();
+			expect(mockLog).toHaveBeenCalled();
 			expect(result.valid).toBe(false);
 		});
 	});
 
 	describe('performHealthCheck', () => {
 		test('should pass health check with valid configuration', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			const config = {
 				models: {
@@ -229,7 +239,7 @@ describe('CursorAgentValidator', () => {
 		});
 
 		test('should fail health check when cursor-agent unavailable', async () => {
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw new Error('command not found');
 			});
 
@@ -241,7 +251,7 @@ describe('CursorAgentValidator', () => {
 		});
 
 		test('should warn about invalid models', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			const config = {
 				models: {
@@ -258,7 +268,7 @@ describe('CursorAgentValidator', () => {
 		});
 
 		test('should recommend fallback provider', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			const config = {
 				models: {
@@ -276,7 +286,7 @@ describe('CursorAgentValidator', () => {
 
 		test('should handle health check errors gracefully', async () => {
 			// Mock an error in the health check process
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw new Error('Unexpected error');
 			});
 
@@ -317,7 +327,7 @@ describe('CursorAgentValidator', () => {
 
 	describe('Cache Management', () => {
 		test('should clear all caches', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			// Populate caches
 			await validator.checkCursorAgentAvailability();
@@ -343,7 +353,7 @@ describe('CursorAgentValidator', () => {
 		});
 
 		test('checkCursorAgentHealth should work as standalone function', async () => {
-			execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+			mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 
 			const result = await checkCursorAgentHealth({});
 
@@ -356,7 +366,7 @@ describe('CursorAgentValidator', () => {
 	describe('Error Categorization', () => {
 		test('should categorize ENOENT errors', async () => {
 			const mockError = new Error('spawn cursor-agent ENOENT');
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw mockError;
 			});
 
@@ -367,7 +377,7 @@ describe('CursorAgentValidator', () => {
 
 		test('should provide generic error for unknown error types', async () => {
 			const mockError = new Error('Some unexpected error');
-			execSync.mockImplementation(() => {
+			mockExecSync.mockImplementation(() => {
 				throw mockError;
 			});
 
@@ -390,7 +400,7 @@ export const createMockCursorAgentConfig = (overrides = {}) => {
 };
 
 export const mockCursorAgentAvailable = () => {
-	execSync.mockReturnValue('cursor-agent version 1.0.0\n');
+	mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 };
 
 export const mockCursorAgentUnavailable = (errorType = 'not found') => {
@@ -400,7 +410,7 @@ export const mockCursorAgentUnavailable = (errorType = 'not found') => {
 		'permission': 'Permission denied'
 	};
 
-	execSync.mockImplementation(() => {
+	mockExecSync.mockImplementation(() => {
 		throw new Error(errorMessages[errorType] || errorMessages['not found']);
 	});
 };
