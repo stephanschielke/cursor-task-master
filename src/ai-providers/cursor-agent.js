@@ -375,34 +375,35 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 	}
 
 	/**
-	 * Execute cursor-agent command using tmux for proper interactive handling
-	 * Enhanced with timeout management and JSON repair from upstream
+	 * Execute cursor-agent command with optimized timeout handling
+	 * Fixed: Removed competing timeout mechanisms for research operations
 	 * @param {Array<string>} args - Command arguments
 	 * @param {string} prompt - Prompt to send to cursor-agent
 	 * @param {object} [progressTracker] - Optional progress tracker for visual feedback
 	 * @returns {Promise<object>} Parsed response from cursor-agent
 	 */
 	async executeCursorAgent(args, prompt, progressTracker = null) {
-		const operation = 'cursor-agent execution';
-		const timeoutMs = 120000; // 2 minutes - increased for complex operations
+		// FIXED: Dynamic timeout based on operation type
+		// Research operations get longer timeout, regular operations get shorter
+		const isResearchOperation = prompt.toLowerCase().includes('research') ||
+		                           prompt.toLowerCase().includes('complexity') ||
+		                           prompt.toLowerCase().includes('analyze');
+		const timeoutMs = isResearchOperation ? 300000 : 120000; // 5min for research, 2min for regular
 
 		if (progressTracker) {
 			progressTracker.nextPhase(); // Advance to execution phase
 		}
 
-		// Use enhanced timeout management from upstream
-		return await TimeoutManager.withTimeout(
-			this._executeCursorAgentCore(args, prompt, progressTracker),
-			timeoutMs,
-			operation
-		);
+		// FIXED: Single timeout mechanism - let the core handle it instead of competing timeouts
+		return await this._executeCursorAgentCore(args, prompt, progressTracker, timeoutMs);
 	}
 
 		/**
 	 * Core cursor-agent execution logic with real-time stdout monitoring (Option 1 - Elegant)
+	 * FIXED: Single timeout mechanism, optimized for research operations
 	 * @private
 	 */
-	async _executeCursorAgentCore(args, prompt, progressTracker = null) {
+	async _executeCursorAgentCore(args, prompt, progressTracker = null, timeoutMs = 120000) {
 		return new Promise((resolve, reject) => {
 			const sessionId = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 			let tmpFile = null;
@@ -445,28 +446,39 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 				let outputBuffer = '';
 
-				// Real-time stdout monitoring - this is the elegant part!
+				// OPTIMIZED: Real-time stdout monitoring with reduced logging for research operations
+				const isResearchOp = timeoutMs > 120000; // Research operations have longer timeouts
 				child.stdout.on('data', (data) => {
 					const chunk = data.toString();
 					outputBuffer += chunk;
 
-					log('DEBUG: Received chunk length:', chunk.length, 'total buffer:', outputBuffer.length);
+					// FIXED: Reduce debug logging for long operations to prevent interference
+					if (!isResearchOp || outputBuffer.length % 10000 === 0) {
+						log('DEBUG: Received chunk length:', chunk.length, 'total buffer:', outputBuffer.length);
+					}
+
+					// OPTIMIZED: Progress tracking for research operations
+					if (progressTracker && isResearchOp && chunk.includes('"type":"assistant"')) {
+						progressTracker.updateProgress(0.6, 'AI generating response...');
+					}
 
 					// Look for completion marker in real-time
 					if (chunk.includes('"type":"result"') && !resultFound) {
 						log('DEBUG: Found result marker, parsing completion...');
 
-						// Give a small buffer for the JSON to complete
+						// FIXED: Give longer buffer for complex research responses
+						const bufferTime = isResearchOp ? 500 : 200;
 						setTimeout(() => {
 							if (!resultFound) {
 								resultFound = true;
-								const parsed = this._parseCompletionFromOutput(outputBuffer);
+								const parsed = this._parseCompletionFromOutput(outputBuffer, isResearchOp);
 
 								if (parsed) {
 									log('cursor-agent response received (direct):', {
 										resultLength: parsed.result?.length || 0,
 										isError: parsed.is_error,
-										sessionId: parsed.session_id
+										sessionId: parsed.session_id,
+										isResearch: isResearchOp
 									});
 
 									cleanup();
@@ -476,7 +488,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 									reject(new Error('Failed to parse cursor-agent result despite finding marker'));
 								}
 							}
-						}, 200); // Small buffer for JSON completion
+						}, bufferTime); // Longer buffer for research operations
 					}
 				});
 
@@ -491,17 +503,23 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 				child.on('close', (code) => {
 					if (!resultFound) {
 						log('DEBUG: Process closed with code', code, 'buffer length:', outputBuffer.length);
-						log('DEBUG: Final buffer content (last 300 chars):', outputBuffer.slice(-300));
+						// FIXED: Show more context for research operations, less for regular ones
+						const contextLength = isResearchOp ? 500 : 300;
+						log('DEBUG: Final buffer content (last chars):', outputBuffer.slice(-contextLength));
 
-						// Process completed, try to parse final output
-						const parsed = this._parseCompletionFromOutput(outputBuffer);
+						// OPTIMIZED: Try parsing with more aggressive cleanup for research operations
+						const parsed = this._parseCompletionFromOutput(outputBuffer, isResearchOp);
 						cleanup();
 
 						if (parsed) {
 							log('DEBUG: Successfully parsed result on close event');
 							resolve(parsed);
 						} else {
-							reject(new Error(`cursor-agent exited with code ${code}, no result found. Buffer length: ${outputBuffer.length}`));
+							// IMPROVED: Better error message for research vs regular operations
+							const errorMsg = isResearchOp ?
+								`Research operation completed but no result parsed. Buffer: ${outputBuffer.length} chars. Try reducing complexity.` :
+								`cursor-agent exited with code ${code}, no result found. Buffer length: ${outputBuffer.length}`;
+							reject(new Error(errorMsg));
 						}
 					}
 				});
@@ -513,10 +531,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 					}
 				});
 
-				// Timeout handling
+				// FIXED: Use dynamic timeout from parameter instead of hardcoded value
 				const timeout = setTimeout(() => {
 					if (!resultFound) {
-						log('DEBUG: Timeout reached, killing process...');
+						log(`DEBUG: Timeout reached after ${timeoutMs/1000}s, killing process...`);
 						if (child && !child.killed) {
 							child.kill('SIGTERM');
 							setTimeout(() => {
@@ -526,9 +544,9 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							}, 5000);
 						}
 						cleanup();
-						reject(new Error('cursor-agent timeout after 120 seconds'));
+						reject(new Error(`cursor-agent timeout after ${timeoutMs/1000} seconds`));
 					}
-				}, 120000); // 2 minutes
+				}, timeoutMs); // Dynamic timeout based on operation type
 
 				const cleanup = () => {
 					clearTimeout(timeout);
@@ -580,15 +598,18 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 	/**
 	 * Parse completion result from cursor-agent output
+	 * OPTIMIZED: Enhanced parsing for research operations with larger responses
 	 * @private
 	 */
-	_parseCompletionFromOutput(output) {
+	_parseCompletionFromOutput(output, isResearchOperation = false) {
 		const cleanOutput = output
 			.replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI color codes
 			.replace(/[\x00-\x1F\x7F]/g, ''); // Remove control characters
 
-		// Try to find complete JSON objects by finding balanced braces for {"type":"result"...}
-		const resultLineRegex = /"type":"result"[^}]*}/g;
+		// OPTIMIZED: More aggressive search for research operations with larger outputs
+		const resultLineRegex = isResearchOperation ?
+			/"type":"result"[\s\S]*?"result":/g : // More permissive for research
+			/"type":"result"[^}]*}/g;             // Original for regular ops
 		let match;
 		while ((match = resultLineRegex.exec(cleanOutput)) !== null) {
 			// Find the start of the JSON object by looking backwards for opening brace
