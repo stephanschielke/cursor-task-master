@@ -4,11 +4,11 @@
 
 set -e  # Exit on any error
 
-# Configuration
-MCP_SERVER_PATH="/home/stephan/Code/claude-task-master/mcp-server/server.js"
+# Configuration - use environment variables with defaults
+MCP_SERVER_PATH="${TASKMASTER_PROJECT_ROOT:-$(pwd)}/mcp-server/server.js"
 PID_FILE="/tmp/taskmaster-mcp-server.pid"
 LOG_FILE="/tmp/taskmaster-mcp-restart.log"
-CURSOR_MCP_CONFIG="/home/stephan/.cursor/mcp.json"
+CURSOR_MCP_CONFIG="${CURSOR_MCP_CONFIG_PATH:-${HOME}/.cursor/mcp.json}"
 MAX_WAIT_TIME=30  # seconds
 
 # Colors for output

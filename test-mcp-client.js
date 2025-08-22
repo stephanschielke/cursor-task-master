@@ -196,8 +196,8 @@ async function main() {
             console.log(`  - ${tool.name}: ${tool.description}`);
         });
         
-        // Test with the provided parameters
-        const projectRoot = '/home/stephan/Code/intropy-ai-mcp';
+        // Test with the provided parameters - use env var with fallback
+        const projectRoot = process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp';
         const inputFile = '.taskmaster/docs/intropy-ai-mcp-prd.txt';
         
         // Test parse PRD (the main fix)

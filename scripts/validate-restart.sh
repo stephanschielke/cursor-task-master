@@ -68,7 +68,7 @@ fi
 
 # Test 7: Check MCP server path
 echo -n "✓ Verifying MCP server path... "
-MCP_PATH="/home/stephan/Code/claude-task-master/mcp-server/server.js"
+MCP_PATH="${TASKMASTER_PROJECT_ROOT:-$(pwd)}/mcp-server/server.js"
 if [ -f "$MCP_PATH" ]; then
     echo -e "${GREEN}PASS${NC}"
 else

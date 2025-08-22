@@ -10,7 +10,7 @@ async function finalCursorAgentTest() {
         
         // Check model configuration
         const config = await client.callTool('models', {
-            projectRoot: '/home/stephan/Code/intropy-ai-mcp'
+            projectRoot: process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp'
         });
         
         if (config.content[0].text.includes('cursor-agent')) {
@@ -24,7 +24,7 @@ async function finalCursorAgentTest() {
         
         // Now test PRD parsing with cursor-agent
         const result = await client.callTool('parse_prd', {
-            projectRoot: '/home/stephan/Code/intropy-ai-mcp',
+            projectRoot: process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp',
             input: '.taskmaster/docs/intropy-ai-mcp-prd.txt',
             numTasks: '5',
             research: false,  // Start without research to simplify
@@ -41,7 +41,7 @@ async function finalCursorAgentTest() {
             
             // Check if tasks were created
             const tasks = await client.callTool('get_tasks', {
-                projectRoot: '/home/stephan/Code/intropy-ai-mcp'
+                projectRoot: process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp'
             });
             
             console.log('📋 Tasks created:', tasks);

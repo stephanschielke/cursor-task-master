@@ -10,7 +10,7 @@ async function debugCursorAgent() {
         
         // First check if cursor-agent is configured properly
         const modelsResult = await client.callTool('models', {
-            projectRoot: '/home/stephan/Code/intropy-ai-mcp'
+            projectRoot: process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp'
         });
         
         console.log('📊 Models configuration:', modelsResult);
@@ -19,7 +19,7 @@ async function debugCursorAgent() {
         
         // Test PRD parsing with the actual project
         const prdResult = await client.callTool('parse_prd', {
-            projectRoot: '/home/stephan/Code/intropy-ai-mcp',
+            projectRoot: process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp',
             input: '.taskmaster/docs/intropy-ai-mcp-prd.txt',
             numTasks: '3', // Smaller number for testing
             research: false, // Disable research to simplify
@@ -30,7 +30,7 @@ async function debugCursorAgent() {
         
         // Check if tasks were created
         const tasksResult = await client.callTool('get_tasks', {
-            projectRoot: '/home/stephan/Code/intropy-ai-mcp'
+            projectRoot: process.env.TEST_INTROPY_PROJECT_ROOT || '/tmp/test-intropy-ai-mcp'
         });
         
         console.log('📋 Tasks after parsing:', tasksResult);
