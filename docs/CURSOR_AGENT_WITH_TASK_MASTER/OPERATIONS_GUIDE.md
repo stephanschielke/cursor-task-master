@@ -164,7 +164,7 @@ tail -f /tmp/taskmaster-mcp-restart.log
 ### Status Check
 ```
 2025-08-17 09:09:23 [INFO] TaskMaster MCP Server Status: RUNNING (PID: 2796798)
-2025-08-17 09:09:23 [INFO]   2796798  964555 node /home/stephan/Code/claude-task-master/mcp-server/server.js    46:00
+2025-08-17 09:09:23 [INFO]   2796798  964555 node <path-to-project>/mcp-server/server.js    46:00
 ```
 
 ### Provider Test
@@ -202,13 +202,13 @@ chmod +x scripts/validate-restart.sh
 #### MCP Server Not Found
 ```bash
 # Verify server path exists
-ls -la /home/stephan/Code/claude-task-master/mcp-server/server.js
+ls -la <path-to-project>/mcp-server/server.js
 ```
 
 #### Provider Loading Fails
 ```bash
 # Test provider manually
-cd /home/stephan/Code/claude-task-master
+cd <path-to-project>
 node -e "
 const { CursorAgentProvider } = require('./src/ai-providers/cursor-agent.js');
 console.log('Provider loaded:', new CursorAgentProvider().name);
@@ -279,7 +279,7 @@ After=network.target
 [Service]
 Type=simple
 User=stephan
-WorkingDirectory=/home/stephan/Code/claude-task-master
+WorkingDirectory=<path-to-project>
 ExecStart=/usr/bin/node mcp-server/server.js
 Restart=always
 RestartSec=10

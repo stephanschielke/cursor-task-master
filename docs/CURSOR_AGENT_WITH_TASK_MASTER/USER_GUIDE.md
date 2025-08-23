@@ -80,7 +80,7 @@ Ensure your `.cursor/mcp.json` includes the TaskMaster MCP server:
   "mcpServers": {
     "task-master-ai": {
       "command": "node",
-      "args": ["/home/stephan/Code/claude-task-master/mcp-server/server.js"],
+      "args": ["<path-to-project>/mcp-server/server.js"],
       "env": {
         "PERPLEXITY_API_KEY": "your-key-here",
         "OPENAI_API_KEY": "your-fallback-key"
