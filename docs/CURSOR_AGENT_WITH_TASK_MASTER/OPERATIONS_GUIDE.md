@@ -35,7 +35,7 @@ git checkout cursor-agent-provider
 # Edit: src/ai-providers/cursor-agent.js
 ./scripts/restart-mcp-server.sh restart
 
-# After changing provider registration  
+# After changing provider registration
 # Edit: scripts/modules/ai-services-unified.js
 ./scripts/restart-mcp-server.sh restart
 ```
@@ -55,14 +55,14 @@ git checkout cursor-agent-provider
 # No restart needed - loaded via dotenv.config()
 
 # Task data changes (read from filesystem)
-# Edit: .taskmaster/tasks/tasks.json  
+# Edit: .taskmaster/tasks/tasks.json
 # No restart needed - read fresh each operation
 ```
 
 ## Server Architecture
 
 ### Implementation Details
-- **Entry Point**: `mcp-server/server.js` 
+- **Entry Point**: `mcp-server/server.js`
 - **Main Class**: `TaskMasterMCPServer` in `mcp-server/src/index.js`
 - **Framework**: [FastMCP v3.8.4](https://github.com/punkpeye/fastmcp)
 - **Transport**: stdio with 2-minute timeout
@@ -87,7 +87,7 @@ process.on('SIGTERM', async () => {
 ### Available Commands
 ```bash
 ./scripts/restart-mcp-server.sh start      # Start server
-./scripts/restart-mcp-server.sh stop       # Stop server gracefully  
+./scripts/restart-mcp-server.sh stop       # Stop server gracefully
 ./scripts/restart-mcp-server.sh restart    # Stop and start (recommended)
 ./scripts/restart-mcp-server.sh status     # Show current status
 ./scripts/restart-mcp-server.sh test       # Test provider loading
@@ -108,12 +108,12 @@ process.on('SIGTERM', async () => {
 # Check current status
 ./scripts/restart-mcp-server.sh status
 
-# Validate restart readiness  
+# Validate restart readiness
 ./scripts/validate-restart.sh
 
 # Expected output:
 # ✅ Restart script is ready to use
-# ✅ All core dependencies available  
+# ✅ All core dependencies available
 # ✅ Provider loading works correctly
 # ✅ Logging system functional
 ```
@@ -168,7 +168,7 @@ tail -f /tmp/taskmaster-mcp-restart.log
 ```
 
 ### Provider Test
-```  
+```
 2025-08-17 09:09:29 [INFO] Testing provider availability...
 2025-08-17 09:09:29 [INFO]   ✅ CursorAgentProvider loaded successfully
 2025-08-17 09:09:29 [INFO]   Provider name: Cursor Agent
@@ -226,7 +226,7 @@ cat ~/.cursor/mcp.json | grep -A 10 "task-master-ai"
 
 ### Log Files
 - **Restart operations**: `/tmp/taskmaster-mcp-restart.log`
-- **Server stdout**: `/tmp/taskmaster-mcp-stdout.log`  
+- **Server stdout**: `/tmp/taskmaster-mcp-stdout.log`
 - **Server stderr**: `/tmp/taskmaster-mcp-stderr.log`
 
 ## cursor-agent Provider Integration

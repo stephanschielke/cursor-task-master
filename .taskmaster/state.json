@@ -1,9 +1,9 @@
 {
-	"currentTag": "cursor-agent-integration",
-	"lastSwitched": "2025-08-21T18:40:30.584Z",
-	"branchTagMapping": {
-		"v017-adds": "v017-adds",
-		"next": "next"
-	},
-	"migrationNoticeShown": true
+  "currentTag": "cursor-agent-integration",
+  "lastSwitched": "2025-08-23T10:12:59.043Z",
+  "branchTagMapping": {
+    "v017-adds": "v017-adds",
+    "next": "next"
+  },
+  "migrationNoticeShown": true
 }

@@ -38,7 +38,7 @@ cat .taskmaster/config.json
 **Recommended: Browser Authentication**
 ```bash
 cursor-agent login          # Opens browser for auth
-cursor-agent status         # Check auth status  
+cursor-agent status         # Check auth status
 cursor-agent logout         # Clear credentials (if needed)
 ```
 
@@ -65,7 +65,7 @@ Update `.taskmaster/config.json` to use cursor-agent as primary provider:
       "modelId": "sonar-pro"
     },
     "fallback": {
-      "provider": "openai", 
+      "provider": "openai",
       "modelId": "gpt-4"
     }
   }
@@ -121,7 +121,7 @@ To resume this session: cursor-agent --resume=2f98f950-3b88-430d-b0eb-6a25660a0d
 **Model-Specific Commands:**
 ```bash
 cursor-agent sonnet "prompt"    # Direct sonnet model
-cursor-agent opus "prompt"      # Direct opus model  
+cursor-agent opus "prompt"      # Direct opus model
 cursor-agent gpt5 "prompt"      # Direct GPT-5 model
 ```
 
@@ -134,7 +134,7 @@ cursor-agent --print --output-format json --model sonnet
 
 **Available Output Formats:**
 - `text` - Human-readable progress tracking
-- `json` - Single JSON object on completion  
+- `json` - Single JSON object on completion
 - `stream-json` - Real-time JSON events (default)
 
 **JSON Success Response Structure:**
@@ -167,7 +167,7 @@ Configure permissions in `~/.cursor/cli-config.json` or `<project>/.cursor/cli.j
 
 **Shell Command Examples:**
 - `"Shell(git)"` - Allow git commands
-- `"Shell(npm)"` - Allow npm commands  
+- `"Shell(npm)"` - Allow npm commands
 - `"Shell(ls)"` - Allow directory listing
 - `"Shell(rm)"` - File deletion (use with caution)
 - `"Shell(sudo)"` - Superuser commands (high risk)
@@ -196,7 +196,7 @@ echo "Hello" | cursor-agent --print --output-format json --model sonnet
 # List available sessions
 cursor-agent ls
 
-# Resume specific session  
+# Resume specific session
 cursor-agent --resume=session-id-here "continue previous task"
 
 # Check authentication
@@ -238,7 +238,7 @@ The cursor-agent integration follows this precedence order:
 
 ```
 1. CLI Arguments (Highest Priority)
-2. Environment Variables  
+2. Environment Variables
 3. Configuration Files (Lowest Priority)
 ```
 
@@ -270,7 +270,7 @@ CURSOR_MODEL=sonnet cursor-agent --print "prompt"
 Cursor Agent CLI **cannot access the internet directly**. It can only:
 
 1. **Local Project Context** - files, git, project structure
-2. **Configured MCP Servers** - TaskMaster MCP integration  
+2. **Configured MCP Servers** - TaskMaster MCP integration
 3. **Workspace Rules** - .cursor/rules and project-specific context
 
 **For Internet Research:** Use TaskMaster's research command which has internet access through MCP servers.
@@ -279,13 +279,13 @@ Cursor Agent CLI **cannot access the internet directly**. It can only:
 ```bash
 # What cursor-agent CAN access:
 - Local codebase files and git history
-- Project-specific .cursor/rules 
+- Project-specific .cursor/rules
 - TaskMaster MCP tools and context
 - Workspace configuration
 
 # What cursor-agent CANNOT access:
 - General internet search
-- Live web content  
+- Live web content
 - Real-time information
 - External APIs (unless via MCP)
 ```
