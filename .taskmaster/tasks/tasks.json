@@ -7148,7 +7148,7 @@
             "title": "Implement Cursor-Agent Session Warming and Chat ID Caching",
             "description": "Add in-memory session caching to the MCP server to enable cursor-agent session reuse across multiple calls in the same context/directory, reducing context overhead and improving response times.",
             "details": "Implement a comprehensive session warming system:\n\n1. **MCP Server Session Cache**: Create an in-memory cache that stores active cursor-agent chat IDs mapped by context (directory path, model, etc.)\n\n2. **Session Reuse Logic**: Modify CursorAgentProvider to check the cache before creating new sessions, with configurable feature flag to enable/disable reuse\n\n3. **Session Lifecycle Management**: \n   - Track session creation timestamps and activity\n   - Implement TTL (time-to-live) policies for session expiration\n   - Handle session cleanup when contexts change or sessions become stale\n\n4. **Configuration Options**:\n   - Feature flag: `CURSOR_AGENT_SESSION_REUSE` (default: enabled)\n   - Session TTL: `CURSOR_AGENT_SESSION_TTL` (default: 30 minutes)\n   - Max sessions per context: `CURSOR_AGENT_MAX_SESSIONS` (default: 3)\n\n5. **Integration Points**:\n   - Update `_executeCursorAgentCore()` to check cache before creating sessionId\n   - Modify response parsing to update session cache with latest activity\n   - Add session management endpoints to MCP server for debugging\n\n6. **Performance Optimization**:\n   - Reduce context re-establishment overhead\n   - Maintain conversation history across related operations\n   - Smart session invalidation on significant context changes (file modifications, directory changes)\n\nThis enhancement will significantly improve cursor-agent performance for iterative operations like task expansion, updates, and analysis within the same project context.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               "1.1"
             ],
@@ -7493,7 +7493,7 @@
     ],
     "metadata": {
       "created": "2025-08-21T17:41:12.804Z",
-      "updated": "2025-08-23T16:21:15.466Z",
+      "updated": "2025-08-23T17:15:36.724Z",
       "description": "Tasks for cursor-agent-integration context"
     }
   }

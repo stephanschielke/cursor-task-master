@@ -17,11 +17,40 @@ import {
 	createRecursiveCursorAgentProgressTracker
 } from '../progress/cursor-agent-progress-tracker.js';
 import { sessionManager } from '../utils/cursor-agent-session-manager.js';
+import {
+	getCachedChatId,
+	cacheChatId,
+	configureCaching
+} from '../utils/cursor-agent-session-cache.js';
 
 export class CursorAgentProvider extends BaseAIProvider {
 	constructor() {
 		super();
 		this.name = 'Cursor Agent';
+
+		// Configure session caching based on environment variables and defaults
+		this.configureSessionCaching();
+	}
+
+	/**
+	 * Configure session caching based on environment and configuration
+	 */
+	configureSessionCaching() {
+		const cacheConfig = {
+			// Enable/disable session reuse via environment variable
+			enabled: process.env.CURSOR_AGENT_SESSION_REUSE !== 'false', // Default: enabled
+
+			// Session TTL in minutes (default: 30 minutes)
+			sessionTTL: parseInt(process.env.CURSOR_AGENT_SESSION_TTL || '30') * 60 * 1000,
+
+			// Max sessions to cache (default: 20)
+			maxSessions: parseInt(process.env.CURSOR_AGENT_MAX_SESSIONS || '20')
+		};
+
+		// Configure the session cache
+		configureCaching(cacheConfig);
+
+		log('Cursor Agent session caching configured', cacheConfig);
 	}
 
 	getRequiredApiKeyName() {
@@ -160,15 +189,25 @@ export class CursorAgentProvider extends BaseAIProvider {
 				mode: providerParams.mode || 'recursive'
 			});
 			const model = options.model || providerParams.modelId || 'sonnet-4';
+			const projectRoot = providerParams.projectRoot || process.cwd();
+
+			// Check for cached session to reuse
+			const cachedChatId = getCachedChatId(projectRoot, model);
 
 			const args = this.buildCursorAgentArgs({
 				model,
 				// Use default stream-json format (don't specify outputFormat)
 				withDiffs: false, // Disabled for now. Use the new --with-diffs feature for better context
-				apiKey: providerParams.apiKey
+				apiKey: providerParams.apiKey,
+				chatId: cachedChatId // Add cached chat ID if available
 			});
 
-			log('Calling cursor-agent with args:', { args, model });
+			log('Calling cursor-agent with args:', {
+				args,
+				model,
+				cachedSession: !!cachedChatId,
+				chatId: cachedChatId
+			});
 
 			if (progressTracker) {
 				progressTracker.updateProgress(0.1, 'Executing cursor-agent');
@@ -205,6 +244,17 @@ export class CursorAgentProvider extends BaseAIProvider {
 					false
 				);
 				progressTracker.complete('Text generation completed');
+			}
+
+			// Extract and cache chat ID from response if available
+			if (result.chat_id || result.chatId) {
+				const newChatId = result.chat_id || result.chatId;
+				cacheChatId(projectRoot, model, newChatId);
+				log('Cached new chat ID for session reuse', {
+					chatId: newChatId,
+					projectRoot,
+					model
+				});
 			}
 
 			return {
@@ -737,6 +787,11 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 		// Do NOT use --output-format=json as it causes hanging!
 		// The default 'stream-json' format works perfectly and provides structured output
+
+		// Add session resumption if chatId is provided
+		if (options.chatId) {
+			args.push('--resume', options.chatId);
+		}
 
 		// Add --with-diffs for better context (new feature!)
 		if (options.withDiffs !== false) {
@@ -1555,5 +1610,47 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 */
 	emergencyCleanupAll() {
 		sessionManager.emergencyCleanupAll();
+	}
+
+	/**
+	 * Get session cache statistics for monitoring and debugging
+	 * @returns {object} Cache statistics including hit rate, active sessions, etc.
+	 */
+	getSessionCacheStats() {
+		const { getCacheStats } = require('../utils/cursor-agent-session-cache.js');
+		return getCacheStats();
+	}
+
+	/**
+	 * Clear cached session for a specific context
+	 * @param {string} projectRoot - Project directory
+	 * @param {string} model - Model used
+	 * @returns {boolean} True if session was cleared
+	 */
+	clearCachedSession(projectRoot, model) {
+		const { clearCachedSession } = require('../utils/cursor-agent-session-cache.js');
+		clearCachedSession(projectRoot, model);
+		return true;
+	}
+
+	/**
+	 * Clear all cached sessions
+	 * @returns {number} Number of sessions cleared
+	 */
+	clearAllCachedSessions() {
+		const { clearAllSessions } = require('../utils/cursor-agent-session-cache.js');
+		return clearAllSessions();
+	}
+
+	/**
+	 * Configure session caching at runtime
+	 * @param {object} options - Configuration options
+	 * @param {boolean} [options.enabled] - Enable/disable caching
+	 * @param {number} [options.sessionTTL] - Session TTL in milliseconds
+	 * @param {number} [options.maxSessions] - Maximum sessions to cache
+	 */
+	configureSessionCache(options = {}) {
+		configureCaching(options);
+		log('Session cache reconfigured', options);
 	}
 }
