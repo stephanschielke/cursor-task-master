@@ -1,25 +1,80 @@
 /**
  * src/utils/cursor-agent-session-cache.js
  *
- * Simple session caching for cursor-agent chat IDs
- * Stores chat IDs by context to enable session reuse and reduce context overhead
+ * Persistent session storage for cursor-agent chat IDs
+ * Stores chat IDs by context for long-term session reuse (weeks/months)
+ * Sessions are only invalidated when cursor-agent fails to resume them
  */
 
 import { log } from '../../scripts/modules/utils.js';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
-// Simple global cache: contextKey -> { chatId, createdAt, lastUsedAt }
-const sessionCache = new Map();
+// Simple global storage: contextKey -> { chatId, createdAt, lastUsedAt, resumeAttempts }
+const sessionStorage = new Map();
 
 // Configuration
 let config = {
     enabled: true,
-    sessionTTL: 30 * 60 * 1000, // 30 minutes
-    maxSessions: 20
+    maxSessions: 50, // Increased since we're not expiring by time
+    maxResumeAttempts: 3, // Max failed resume attempts before invalidation
+    persistToDisk: true // Persist sessions across restarts
 };
 
+// File path for persistent storage
+const STORAGE_FILE = path.join(os.homedir(), '.cursor-agent-sessions.json');
+
 /**
- * Generate a simple context key for caching
+ * Load sessions from persistent storage on startup
+ */
+function loadSessionsFromDisk() {
+    if (!config.persistToDisk) {
+        return;
+    }
+
+    try {
+        if (fs.existsSync(STORAGE_FILE)) {
+            const data = fs.readFileSync(STORAGE_FILE, 'utf8');
+            const sessions = JSON.parse(data);
+
+            // Convert plain object back to Map
+            for (const [key, value] of Object.entries(sessions)) {
+                sessionStorage.set(key, value);
+            }
+
+            log('Loaded cursor-agent sessions from disk', {
+                sessionsLoaded: sessionStorage.size
+            });
+        }
+    } catch (error) {
+        log('Failed to load sessions from disk (non-critical)', { error: error.message });
+    }
+}
+
+/**
+ * Save sessions to persistent storage
+ */
+function saveSessionsToDisk() {
+    if (!config.persistToDisk) {
+        return;
+    }
+
+    try {
+        // Convert Map to plain object for JSON serialization
+        const sessions = Object.fromEntries(sessionStorage);
+        fs.writeFileSync(STORAGE_FILE, JSON.stringify(sessions, null, 2), 'utf8');
+
+        log('Saved cursor-agent sessions to disk', {
+            sessionsSaved: sessionStorage.size
+        });
+    } catch (error) {
+        log('Failed to save sessions to disk (non-critical)', { error: error.message });
+    }
+}
+
+/**
+ * Generate a simple context key for session storage
  * @param {string} projectRoot - Project directory
  * @param {string} model - Model being used
  * @returns {string} Context key
@@ -29,11 +84,14 @@ function generateContextKey(projectRoot, model) {
     return `${resolvedPath}:${model || 'default'}`;
 }
 
+// Load existing sessions on module initialization
+loadSessionsFromDisk();
+
 /**
- * Get cached chat ID for a context
+ * Get stored chat ID for a context
  * @param {string} projectRoot - Project directory
  * @param {string} model - Model being used
- * @returns {string|null} Cached chat ID or null
+ * @returns {string|null} Stored chat ID or null
  */
 export function getCachedChatId(projectRoot, model) {
     if (!config.enabled) {
@@ -41,41 +99,49 @@ export function getCachedChatId(projectRoot, model) {
     }
 
     const contextKey = generateContextKey(projectRoot, model);
-    const cached = sessionCache.get(contextKey);
+    const stored = sessionStorage.get(contextKey);
 
-    if (!cached) {
+    if (!stored) {
         return null;
     }
 
-    // Check if session is still valid (not expired)
-    const now = Date.now();
-    const age = now - cached.createdAt;
-    const inactivity = now - cached.lastUsedAt;
+    // Check if session has exceeded max resume attempts
+    if (stored.resumeAttempts >= config.maxResumeAttempts) {
+        log('Session exceeded max resume attempts, removing', {
+            contextKey,
+            chatId: stored.chatId,
+            attempts: stored.resumeAttempts
+        });
 
-    if (age > config.sessionTTL || inactivity > config.sessionTTL) {
-        sessionCache.delete(contextKey);
+        sessionStorage.delete(contextKey);
+        saveSessionsToDisk();
         return null;
     }
 
     // Update last used time
-    cached.lastUsedAt = now;
+    stored.lastUsedAt = Date.now();
+    saveSessionsToDisk();
 
-    log('Using cached chat ID', {
+    const ageInDays = Math.round((Date.now() - stored.createdAt) / (1000 * 60 * 60 * 24));
+
+    log('Using stored chat ID', {
         contextKey,
-        chatId: cached.chatId,
-        ageMinutes: Math.round(age / 60000)
+        chatId: stored.chatId,
+        ageDays: ageInDays,
+        resumeAttempts: stored.resumeAttempts || 0
     });
 
-    return cached.chatId;
+    return stored.chatId;
 }
 
 /**
- * Cache a chat ID for a context
+ * Store a chat ID for a context
  * @param {string} projectRoot - Project directory
  * @param {string} model - Model being used
- * @param {string} chatId - Chat ID to cache
+ * @param {string} chatId - Chat ID to store
+ * @param {boolean} [isNew=true] - Whether this is a new session or updating existing
  */
-export function cacheChatId(projectRoot, model, chatId) {
+export function cacheChatId(projectRoot, model, chatId, isNew = true) {
     if (!config.enabled || !chatId) {
         return;
     }
@@ -83,114 +149,209 @@ export function cacheChatId(projectRoot, model, chatId) {
     const contextKey = generateContextKey(projectRoot, model);
     const now = Date.now();
 
-    sessionCache.set(contextKey, {
-        chatId,
-        createdAt: now,
-        lastUsedAt: now
-    });
+    // Get existing session or create new one
+    const existing = sessionStorage.get(contextKey);
 
-    // Clean up old sessions if we exceed max limit
-    if (sessionCache.size > config.maxSessions) {
-        const entries = Array.from(sessionCache.entries());
+    const sessionData = {
+        chatId,
+        createdAt: isNew ? now : (existing?.createdAt || now),
+        lastUsedAt: now,
+        resumeAttempts: 0 // Reset resume attempts on successful session
+    };
+
+    sessionStorage.set(contextKey, sessionData);
+
+    // Clean up old sessions if we exceed max limit (be more conservative)
+    if (sessionStorage.size > config.maxSessions) {
+        const entries = Array.from(sessionStorage.entries());
         entries.sort((a, b) => a[1].lastUsedAt - b[1].lastUsedAt);
 
-        // Remove oldest sessions
-        const toRemove = entries.slice(0, sessionCache.size - config.maxSessions);
-        toRemove.forEach(([key]) => sessionCache.delete(key));
+        // Remove only the oldest 10% when limit is exceeded
+        const removeCount = Math.floor(config.maxSessions * 0.1);
+        const toRemove = entries.slice(0, removeCount);
+
+        toRemove.forEach(([key]) => sessionStorage.delete(key));
+
+        log('Cleaned up old sessions', {
+            removed: removeCount,
+            remaining: sessionStorage.size
+        });
     }
 
-    log('Cached chat ID', {
+    // Save to disk
+    saveSessionsToDisk();
+
+    log('Stored chat ID', {
         contextKey,
         chatId,
-        totalCached: sessionCache.size
+        isNew,
+        totalStored: sessionStorage.size
     });
 }
 
 /**
- * Clear cached session for a context
+ * Mark a resume failure for a session
+ * @param {string} projectRoot - Project directory
+ * @param {string} model - Model being used
+ * @param {string} failedChatId - The chat ID that failed to resume
+ * @returns {boolean} True if session was marked as failed
+ */
+export function markResumeFailure(projectRoot, model, failedChatId) {
+    if (!config.enabled) {
+        return false;
+    }
+
+    const contextKey = generateContextKey(projectRoot, model);
+    const stored = sessionStorage.get(contextKey);
+
+    if (!stored || stored.chatId !== failedChatId) {
+        // Session not found or chat ID doesn't match - might have been updated already
+        return false;
+    }
+
+    stored.resumeAttempts = (stored.resumeAttempts || 0) + 1;
+    stored.lastUsedAt = Date.now();
+
+    sessionStorage.set(contextKey, stored);
+    saveSessionsToDisk();
+
+    log('Marked resume failure', {
+        contextKey,
+        chatId: failedChatId,
+        attempts: stored.resumeAttempts,
+        maxAttempts: config.maxResumeAttempts
+    });
+
+    // Check if we should remove the session now
+    if (stored.resumeAttempts >= config.maxResumeAttempts) {
+        sessionStorage.delete(contextKey);
+        saveSessionsToDisk();
+
+        log('Session removed after max resume failures', {
+            contextKey,
+            chatId: failedChatId,
+            totalAttempts: stored.resumeAttempts
+        });
+    }
+
+    return true;
+}
+
+/**
+ * Clear stored session for a context
  * @param {string} projectRoot - Project directory
  * @param {string} model - Model being used
  */
 export function clearCachedSession(projectRoot, model) {
     const contextKey = generateContextKey(projectRoot, model);
-    const deleted = sessionCache.delete(contextKey);
+    const deleted = sessionStorage.delete(contextKey);
 
     if (deleted) {
-        log('Cleared cached session', { contextKey });
+        saveSessionsToDisk();
+        log('Cleared stored session', { contextKey });
     }
 }
 
 /**
- * Clear all cached sessions
+ * Clear all stored sessions
  */
 export function clearAllSessions() {
-    const count = sessionCache.size;
-    sessionCache.clear();
-    log('Cleared all cached sessions', { count });
+    const count = sessionStorage.size;
+    sessionStorage.clear();
+
+    // Clear persistent storage
+    saveSessionsToDisk();
+
+    log('Cleared all stored sessions', { count });
     return count;
 }
 
 /**
- * Get cache statistics
+ * Get storage statistics
  */
 export function getCacheStats() {
     const now = Date.now();
     let activeSessions = 0;
-    let expiredSessions = 0;
+    let failedSessions = 0;
+    let oldestSession = null;
+    let newestSession = null;
 
-    for (const [key, session] of sessionCache.entries()) {
-        const age = now - session.createdAt;
-        const inactivity = now - session.lastUsedAt;
+    for (const [key, session] of sessionStorage.entries()) {
+        const resumeAttempts = session.resumeAttempts || 0;
 
-        if (age <= config.sessionTTL && inactivity <= config.sessionTTL) {
+        if (resumeAttempts < config.maxResumeAttempts) {
             activeSessions++;
         } else {
-            expiredSessions++;
+            failedSessions++;
+        }
+
+        // Track age ranges
+        if (!oldestSession || session.createdAt < oldestSession) {
+            oldestSession = session.createdAt;
+        }
+        if (!newestSession || session.createdAt > newestSession) {
+            newestSession = session.createdAt;
         }
     }
 
-    return {
-        totalSessions: sessionCache.size,
+    const stats = {
+        totalSessions: sessionStorage.size,
         activeSessions,
-        expiredSessions,
+        failedSessions,
         enabled: config.enabled,
-        sessionTTL: config.sessionTTL,
-        maxSessions: config.maxSessions
+        maxSessions: config.maxSessions,
+        maxResumeAttempts: config.maxResumeAttempts,
+        persistToDisk: config.persistToDisk
     };
+
+    // Add age information if we have sessions
+    if (oldestSession) {
+        stats.oldestSessionDays = Math.round((now - oldestSession) / (1000 * 60 * 60 * 24));
+        stats.newestSessionDays = Math.round((now - newestSession) / (1000 * 60 * 60 * 24));
+    }
+
+    return stats;
 }
 
 /**
- * Configure session caching
+ * Configure session storage
  * @param {object} options - Configuration options
  */
 export function configureCaching(options = {}) {
     config = { ...config, ...options };
-    log('Session caching configured', config);
+
+    // If disk persistence settings changed, handle it
+    if ('persistToDisk' in options) {
+        if (options.persistToDisk) {
+            saveSessionsToDisk();
+        }
+    }
+
+    log('Session storage configured', config);
 }
 
 /**
- * Clean up expired sessions
+ * Clean up failed sessions that have exceeded max resume attempts
  */
-export function cleanupExpiredSessions() {
-    const now = Date.now();
+export function cleanupFailedSessions() {
     let cleaned = 0;
 
-    for (const [key, session] of sessionCache.entries()) {
-        const age = now - session.createdAt;
-        const inactivity = now - session.lastUsedAt;
+    for (const [key, session] of sessionStorage.entries()) {
+        const resumeAttempts = session.resumeAttempts || 0;
 
-        if (age > config.sessionTTL || inactivity > config.sessionTTL) {
-            sessionCache.delete(key);
+        if (resumeAttempts >= config.maxResumeAttempts) {
+            sessionStorage.delete(key);
             cleaned++;
         }
     }
 
     if (cleaned > 0) {
-        log('Cleaned up expired sessions', { cleaned, remaining: sessionCache.size });
+        saveSessionsToDisk();
+        log('Cleaned up failed sessions', { cleaned, remaining: sessionStorage.size });
     }
 
     return cleaned;
 }
 
-// Periodic cleanup every 5 minutes
-setInterval(cleanupExpiredSessions, 5 * 60 * 1000);
+// Clean up failed sessions less frequently - once per hour
+setInterval(cleanupFailedSessions, 60 * 60 * 1000);

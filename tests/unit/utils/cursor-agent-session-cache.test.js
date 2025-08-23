@@ -1,7 +1,7 @@
 /**
  * tests/unit/utils/cursor-agent-session-cache.test.js
  *
- * Unit tests for cursor-agent session caching functionality
+ * Unit tests for cursor-agent session persistent storage functionality
  */
 
 import {
@@ -11,7 +11,8 @@ import {
     clearAllSessions,
     getCacheStats,
     configureCaching,
-    cleanupExpiredSessions
+    markResumeFailure,
+    cleanupFailedSessions
 } from '../../../src/utils/cursor-agent-session-cache.js';
 
 describe('CursorAgentSessionCache', () => {
@@ -26,8 +27,9 @@ describe('CursorAgentSessionCache', () => {
         // Reset configuration to defaults
         configureCaching({
             enabled: true,
-            sessionTTL: 30 * 60 * 1000, // 30 minutes
-            maxSessions: 20
+            maxSessions: 50,
+            maxResumeAttempts: 3,
+            persistToDisk: false // Disable disk persistence for tests
         });
     });
 
@@ -97,63 +99,96 @@ describe('CursorAgentSessionCache', () => {
         });
     });
 
-    describe('session expiration', () => {
-        it('should expire sessions after TTL', (done) => {
-            // Set very short TTL for testing
+    describe('session failure handling', () => {
+        it('should invalidate session after max resume failures', () => {
+            // Set low failure threshold for testing
             configureCaching({
                 enabled: true,
-                sessionTTL: 100 // 100ms
+                maxResumeAttempts: 2
             });
 
             cacheChatId(testProjectRoot, testModel, testChatId);
 
-            // Should be available immediately
+            // Should be available initially
             expect(getCachedChatId(testProjectRoot, testModel)).toBe(testChatId);
 
-            // Should expire after TTL
-            setTimeout(() => {
-                const cachedId = getCachedChatId(testProjectRoot, testModel);
-                expect(cachedId).toBeNull();
-                done();
-            }, 150);
-        }, 200);
+            // Mark first failure - should still be available
+            markResumeFailure(testProjectRoot, testModel, testChatId);
+            expect(getCachedChatId(testProjectRoot, testModel)).toBe(testChatId);
 
-        it('should update lastUsedAt when accessing cache', () => {
+            // Mark second failure - should be removed
+            markResumeFailure(testProjectRoot, testModel, testChatId);
+            expect(getCachedChatId(testProjectRoot, testModel)).toBeNull();
+        });
+
+        it('should reset resume attempts on successful session update', () => {
+            configureCaching({
+                enabled: true,
+                maxResumeAttempts: 2
+            });
+
+            // Cache initial session
             cacheChatId(testProjectRoot, testModel, testChatId);
 
-            // Access the cache to update lastUsedAt
-            const cachedId1 = getCachedChatId(testProjectRoot, testModel);
-            expect(cachedId1).toBe(testChatId);
+            // Mark a failure
+            markResumeFailure(testProjectRoot, testModel, testChatId);
 
-            // Wait a bit then access again
-            setTimeout(() => {
-                const cachedId2 = getCachedChatId(testProjectRoot, testModel);
-                expect(cachedId2).toBe(testChatId);
-            }, 50);
+            // Update with new session - should reset attempts
+            const newChatId = 'new-chat-456';
+            cacheChatId(testProjectRoot, testModel, newChatId, true);
+
+            // Should be available again
+            expect(getCachedChatId(testProjectRoot, testModel)).toBe(newChatId);
+        });
+
+        it('should handle non-existent session failure gracefully', () => {
+            const result = markResumeFailure(testProjectRoot, testModel, 'non-existent-chat');
+            expect(result).toBe(false);
+        });
+
+        it('should update lastUsedAt when accessing storage', () => {
+            cacheChatId(testProjectRoot, testModel, testChatId);
+
+            const stats1 = getCacheStats();
+            const before = stats1.totalSessions;
+
+            // Access the session
+            const cachedId = getCachedChatId(testProjectRoot, testModel);
+            expect(cachedId).toBe(testChatId);
+
+            // Should still be available (persistent storage)
+            const stats2 = getCacheStats();
+            expect(stats2.totalSessions).toBe(before);
         });
     });
 
     describe('session limits', () => {
         it('should enforce maximum session limit', () => {
-            // Set low limit for testing
+            // Set low limit for testing - higher than before to trigger cleanup
             configureCaching({
                 enabled: true,
-                maxSessions: 2
+                maxSessions: 10 // With 15 sessions, 10% cleanup = 1 session removed
             });
 
-            // Cache 3 sessions (exceeds limit)
-            cacheChatId('/project1', testModel, 'chat-1');
-            cacheChatId('/project2', testModel, 'chat-2');
-            cacheChatId('/project3', testModel, 'chat-3');
+            // Cache sessions that exceed the limit
+            const sessionIds = [];
+            for (let i = 1; i <= 15; i++) {
+                const chatId = `chat-${i}`;
+                cacheChatId(`/project${i}`, testModel, chatId);
+                sessionIds.push(chatId);
+            }
 
-            // Only 2 should remain (newest ones)
+            // Should have triggered cleanup to maintain the limit
             const stats = getCacheStats();
-            expect(stats.totalSessions).toBe(2);
+            expect(stats.totalSessions).toBe(10); // Should be maintained at the limit
 
-            // The oldest should be gone, newest should remain
+            // Most recent sessions should still exist
+            expect(getCachedChatId('/project15', testModel)).toBe('chat-15');
+            expect(getCachedChatId('/project14', testModel)).toBe('chat-14');
+
+            // Earlier sessions should be removed
             expect(getCachedChatId('/project1', testModel)).toBeNull();
-            expect(getCachedChatId('/project2', testModel)).toBe('chat-2');
-            expect(getCachedChatId('/project3', testModel)).toBe('chat-3');
+            expect(getCachedChatId('/project2', testModel)).toBeNull();
         });
     });
 
@@ -181,8 +216,8 @@ describe('CursorAgentSessionCache', () => {
         });
     });
 
-    describe('cache statistics', () => {
-        it('should provide accurate cache statistics', () => {
+    describe('storage statistics', () => {
+        it('should provide accurate storage statistics', () => {
             // Initially empty
             let stats = getCacheStats();
             expect(stats.totalSessions).toBe(0);
@@ -196,83 +231,101 @@ describe('CursorAgentSessionCache', () => {
             stats = getCacheStats();
             expect(stats.totalSessions).toBe(2);
             expect(stats.activeSessions).toBe(2);
+            expect(stats.failedSessions).toBe(0);
         });
 
-        it('should track expired sessions in statistics', (done) => {
-            // Set very short TTL for testing
+        it('should track failed sessions in statistics', () => {
             configureCaching({
                 enabled: true,
-                sessionTTL: 50 // 50ms
+                maxResumeAttempts: 1 // Very low for testing
             });
 
             cacheChatId(testProjectRoot, testModel, testChatId);
 
-            // Wait for expiration
-            setTimeout(() => {
-                const stats = getCacheStats();
-                expect(stats.totalSessions).toBe(1); // Still in cache
-                expect(stats.activeSessions).toBe(0); // But expired
-                expect(stats.expiredSessions).toBe(1);
-                done();
-            }, 100);
-        }, 150);
+            // Mark as failed (should be removed)
+            markResumeFailure(testProjectRoot, testModel, testChatId);
+
+            const stats = getCacheStats();
+            expect(stats.totalSessions).toBe(0); // Removed after max failures
+            expect(stats.activeSessions).toBe(0);
+            expect(stats.failedSessions).toBe(0); // Failed sessions are removed
+        });
+
+        it('should track age information when sessions exist', () => {
+            cacheChatId(testProjectRoot, testModel, testChatId);
+
+            const stats = getCacheStats();
+            expect(stats.oldestSessionDays).toBeDefined();
+            expect(stats.newestSessionDays).toBeDefined();
+            expect(typeof stats.oldestSessionDays).toBe('number');
+            expect(typeof stats.newestSessionDays).toBe('number');
+        });
     });
 
     describe('configuration', () => {
         it('should accept configuration changes', () => {
             const newConfig = {
                 enabled: false,
-                sessionTTL: 60 * 60 * 1000, // 1 hour
-                maxSessions: 50
+                maxSessions: 100,
+                maxResumeAttempts: 5,
+                persistToDisk: false
             };
 
             configureCaching(newConfig);
 
             const stats = getCacheStats();
             expect(stats.enabled).toBe(false);
-            expect(stats.sessionTTL).toBe(60 * 60 * 1000);
-            expect(stats.maxSessions).toBe(50);
+            expect(stats.maxSessions).toBe(100);
+            expect(stats.maxResumeAttempts).toBe(5);
+            expect(stats.persistToDisk).toBe(false);
         });
 
         it('should merge partial configuration changes', () => {
             // Set initial config
             configureCaching({
                 enabled: true,
-                sessionTTL: 30 * 60 * 1000,
-                maxSessions: 20
+                maxSessions: 50,
+                maxResumeAttempts: 3
             });
 
-            // Change only TTL
+            // Change only maxResumeAttempts
             configureCaching({
-                sessionTTL: 60 * 60 * 1000
+                maxResumeAttempts: 5
             });
 
             const stats = getCacheStats();
             expect(stats.enabled).toBe(true); // Should remain true
-            expect(stats.sessionTTL).toBe(60 * 60 * 1000); // Should be updated
-            expect(stats.maxSessions).toBe(20); // Should remain unchanged
+            expect(stats.maxResumeAttempts).toBe(5); // Should be updated
+            expect(stats.maxSessions).toBe(50); // Should remain unchanged
         });
     });
 
     describe('cleanup operations', () => {
-        it('should clean up expired sessions manually', () => {
-            // Set very short TTL for testing
+        it('should clean up failed sessions manually', () => {
+            // Set very low failure threshold for testing
             configureCaching({
                 enabled: true,
-                sessionTTL: 50 // 50ms
+                maxResumeAttempts: 1
             });
 
+            // Create sessions that will fail
             cacheChatId('/project1', testModel, 'chat-1');
             cacheChatId('/project2', testModel, 'chat-2');
 
-            expect(getCacheStats().totalSessions).toBe(2);
+            // Mark both as failed (they'll be removed automatically)
+            markResumeFailure('/project1', testModel, 'chat-1');
+            markResumeFailure('/project2', testModel, 'chat-2');
 
-            // Wait for expiration
-            setTimeout(() => {
-                const cleanedCount = cleanupExpiredSessions();
-                expect(cleanedCount).toBe(2);
-                expect(getCacheStats().totalSessions).toBe(0);
-            }, 100);
+            expect(getCacheStats().totalSessions).toBe(0); // Already removed
+
+            // Create new session that's not failed
+            cacheChatId('/project3', testModel, 'chat-3');
+            expect(getCacheStats().totalSessions).toBe(1);
+
+            // Cleanup should find no failed sessions to remove
+            const cleanedCount = cleanupFailedSessions();
+            expect(cleanedCount).toBe(0);
+            expect(getCacheStats().totalSessions).toBe(1);
         });
     });
 

@@ -20,7 +20,8 @@ import { sessionManager } from '../utils/cursor-agent-session-manager.js';
 import {
 	getCachedChatId,
 	cacheChatId,
-	configureCaching
+	configureCaching,
+	markResumeFailure
 } from '../utils/cursor-agent-session-cache.js';
 
 export class CursorAgentProvider extends BaseAIProvider {
@@ -33,24 +34,27 @@ export class CursorAgentProvider extends BaseAIProvider {
 	}
 
 	/**
-	 * Configure session caching based on environment and configuration
+	 * Configure session storage based on environment and configuration
 	 */
 	configureSessionCaching() {
-		const cacheConfig = {
+		const storageConfig = {
 			// Enable/disable session reuse via environment variable
 			enabled: process.env.CURSOR_AGENT_SESSION_REUSE !== 'false', // Default: enabled
 
-			// Session TTL in minutes (default: 30 minutes)
-			sessionTTL: parseInt(process.env.CURSOR_AGENT_SESSION_TTL || '30') * 60 * 1000,
+			// Max sessions to store (default: 50, increased since no TTL expiration)
+			maxSessions: parseInt(process.env.CURSOR_AGENT_MAX_SESSIONS || '50'),
 
-			// Max sessions to cache (default: 20)
-			maxSessions: parseInt(process.env.CURSOR_AGENT_MAX_SESSIONS || '20')
+			// Max failed resume attempts before session invalidation (default: 3)
+			maxResumeAttempts: parseInt(process.env.CURSOR_AGENT_MAX_RESUME_ATTEMPTS || '3'),
+
+			// Whether to persist sessions to disk (default: true for long-term storage)
+			persistToDisk: process.env.CURSOR_AGENT_PERSIST_SESSIONS !== 'false'
 		};
 
-		// Configure the session cache
-		configureCaching(cacheConfig);
+		// Configure the session storage
+		configureCaching(storageConfig);
 
-		log('Cursor Agent session caching configured', cacheConfig);
+		log('Cursor Agent session storage configured', storageConfig);
 	}
 
 	getRequiredApiKeyName() {
@@ -213,11 +217,78 @@ export class CursorAgentProvider extends BaseAIProvider {
 				progressTracker.updateProgress(0.1, 'Executing cursor-agent');
 			}
 
-			const result = await this.executeCursorAgent(
-				args,
-				prompt,
-				progressTracker
-			);
+			let result;
+			let retriedWithoutResume = false;
+
+			try {
+				result = await this.executeCursorAgent(
+					args,
+					prompt,
+					progressTracker
+				);
+
+				// Check for resume-related errors
+				if (result.is_error && cachedChatId && this.isResumeFailure(result.result)) {
+					log('Resume failure detected, retrying without cached session', {
+						cachedChatId,
+						error: result.result
+					});
+
+					// Mark the resume failure
+					markResumeFailure(projectRoot, model, cachedChatId);
+
+					// Retry without resume by rebuilding args without chatId
+					const retryArgs = this.buildCursorAgentArgs({
+						model,
+						withDiffs: false,
+						apiKey: providerParams.apiKey
+						// No chatId - will create new session
+					});
+
+					if (progressTracker) {
+						progressTracker.updateProgress(0.2, 'Retrying with new session...');
+					}
+
+					result = await this.executeCursorAgent(
+						retryArgs,
+						prompt,
+						progressTracker
+					);
+					retriedWithoutResume = true;
+				}
+			} catch (error) {
+				// If we have a cached session and this looks like a resume error, try without resume
+				if (cachedChatId && !retriedWithoutResume && this.isResumeFailure(error.message)) {
+					log('Resume failure in exception, retrying without cached session', {
+						cachedChatId,
+						error: error.message
+					});
+
+					// Mark the resume failure
+					markResumeFailure(projectRoot, model, cachedChatId);
+
+					// Retry without resume
+					const retryArgs = this.buildCursorAgentArgs({
+						model,
+						withDiffs: false,
+						apiKey: providerParams.apiKey
+						// No chatId - will create new session
+					});
+
+					if (progressTracker) {
+						progressTracker.updateProgress(0.2, 'Retrying with new session...');
+					}
+
+					result = await this.executeCursorAgent(
+						retryArgs,
+						prompt,
+						progressTracker
+					);
+					retriedWithoutResume = true;
+				} else {
+					throw error;
+				}
+			}
 
 			if (progressTracker) {
 				progressTracker.updateProgress(0.9, 'Processing cursor-agent response');
@@ -249,11 +320,15 @@ export class CursorAgentProvider extends BaseAIProvider {
 			// Extract and cache chat ID from response if available
 			if (result.chat_id || result.chatId) {
 				const newChatId = result.chat_id || result.chatId;
-				cacheChatId(projectRoot, model, newChatId);
-				log('Cached new chat ID for session reuse', {
+				const isNewSession = !cachedChatId || retriedWithoutResume;
+
+				cacheChatId(projectRoot, model, newChatId, isNewSession);
+				log('Stored chat ID for session reuse', {
 					chatId: newChatId,
 					projectRoot,
-					model
+					model,
+					isNewSession,
+					wasRetry: retriedWithoutResume
 				});
 			}
 
@@ -1651,6 +1726,30 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 */
 	configureSessionCache(options = {}) {
 		configureCaching(options);
-		log('Session cache reconfigured', options);
+		log('Session storage reconfigured', options);
+	}
+
+	/**
+	 * Check if an error indicates a resume failure
+	 * @param {string} errorMessage - Error message from cursor-agent
+	 * @returns {boolean} True if this appears to be a resume failure
+	 */
+	isResumeFailure(errorMessage) {
+		if (!errorMessage || typeof errorMessage !== 'string') {
+			return false;
+		}
+
+		const resumeFailurePatterns = [
+			/chat.*not found/i,
+			/invalid.*chat.*id/i,
+			/session.*expired/i,
+			/unable to resume/i,
+			/resume.*failed/i,
+			/chat.*id.*invalid/i,
+			/session.*not.*found/i,
+			/conversation.*not.*found/i
+		];
+
+		return resumeFailurePatterns.some(pattern => pattern.test(errorMessage));
 	}
 }
