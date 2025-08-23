@@ -18,8 +18,8 @@ export class CursorAgentSessionManager {
         this.maxSessionAge = 600000; // Max 10 minutes for any session
         this.orphanCheckInterval = 60000; // Check for orphans every minute
 
-        // Start background monitoring
-        this.startBackgroundMonitoring();
+        // Background monitoring removed for CLI compatibility
+        // Use lazy cleanup approach instead of setInterval
 
         // Cleanup on process exit
         process.on('exit', () => this.emergencyCleanupAll());
@@ -34,6 +34,10 @@ export class CursorAgentSessionManager {
      * @param {object} options - Session options
      */
     registerSession(sessionId, processInfo, options = {}) {
+        // Perform non-blocking lazy cleanup on registration
+        this.performMaintenanceCleanup().catch(err =>
+            log('SessionManager cleanup error:', err.message));
+
         const sessionInfo = {
             sessionId,
             pid: processInfo.pid,
@@ -319,6 +323,10 @@ export class CursorAgentSessionManager {
      * Get session statistics for monitoring
      */
     getSessionStats() {
+        // Perform non-blocking lazy cleanup when getting stats
+        this.performMaintenanceCleanup().catch(err =>
+            log('SessionManager cleanup error:', err.message));
+
         const currentTime = Date.now();
         const sessions = Array.from(this.activeSessions.values());
 
