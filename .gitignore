@@ -101,3 +101,5 @@ apps/extension/vsix-build/
 # Temp monitoring stuff
 /monitoring/
 /tests/integration/cli/test-*
+.vscode/settings.json
+.vscode/extensions.json
