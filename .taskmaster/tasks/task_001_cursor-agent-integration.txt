@@ -11,87 +11,45 @@ Enhance the existing CursorAgentProvider class with: 1) Review and optimize tmux
 Basic unit tests for session cleanup and error handling. Simple integration test to verify the provider works with mock cursor-agent responses. Focus on testing the cleanup mechanisms and basic functionality rather than comprehensive coverage.
 
 # Subtasks:
-## 1. Optimize Tmux Session Management and Cleanup [pending]
+## 1. Implement Global Session Store with File Locking [pending]
 ### Dependencies: None
-### Description: Review and enhance the existing tmux-based process isolation system to prevent session leaks and improve resource management.
+### Description: Create a global session store that supports multiple concurrent TaskMaster processes with proper file locking mechanisms to prevent race conditions and data corruption during concurrent access.
 ### Details:
-Analyze the current direct process execution implementation in _executeCursorAgentCore() method which uses bash spawning instead of tmux. The current implementation creates unique session IDs (cursor-agent-${timestamp}-${random}) and manages process cleanup via removeAllListeners() and SIGTERM/SIGKILL. Tasks: 1) Verify the cleanup() function properly terminates child processes and removes temp files, 2) Add session leak detection and prevention mechanisms, 3) Implement proper timeout handling for zombie processes, 4) Add process monitoring to detect and clean up orphaned cursor-agent processes, 5) Test cleanup behavior under various failure scenarios (process killed, timeout, connection loss), 6) Add logging for session lifecycle events to aid in debugging cleanup issues.
 
-## 2. Enhance AI SDK Method Compatibility [pending]
+
+## 2. Add Cross-Project Session Sharing [pending]
 ### Dependencies: None
-### Description: Refine the generateText, generateObject, and streamObject methods to ensure full compatibility with AI SDK patterns and improve error handling.
+### Description: Enable intelligent session sharing across multiple TaskMaster projects while maintaining proper isolation and security boundaries.
 ### Details:
-Review the existing AI SDK compatible interface in getClient() method and the implementation of generateText(), generateObject(), and streamObject() methods. The current implementation includes progress tracking, model mapping via mapModelIdToCursorAgent(), and proper usage reporting. Tasks: 1) Validate generateText() method returns proper usage metrics and handles cursor-agent response format correctly, 2) Test generateObject() schema instruction building in _buildSchemaInstructions() for various object types (newTaskData, PRD parsing, etc.), 3) Verify streamObject() wrapper properly emulates streaming behavior with partialObjectStream, 4) Ensure proper error propagation and timeout handling across all methods, 5) Add validation for cursor-agent CLI availability and version compatibility, 6) Test model mapping and validate supported models (sonnet, gpt-5, opus) work correctly.
 
-## 3. Strengthen JSON Parsing and Auto-Repair System [pending]
-### Dependencies: None
-### Description: Enhance the existing JSON parsing logic to handle more edge cases in cursor-agent responses and improve the repair mechanisms.
-### Details:
-Examine the current JSON parsing implementation in _parseCompletionFromOutput() and the repair logic in generateObject() method. The system currently uses jsonrepair library and handles ANSI color code removal, balanced brace counting, and fallback parsing. Tasks: 1) Test the JSON extraction logic with malformed cursor-agent responses (incomplete JSON, extra text, control characters), 2) Enhance the balanced brace counting algorithm in _parseCompletionFromOutput() to handle nested objects more reliably, 3) Improve ANSI code stripping to handle more terminal escape sequences, 4) Add additional fallback strategies for JSON extraction when primary parsing fails, 5) Implement better error messages when JSON repair fails to provide debugging context, 6) Add unit tests for common malformed JSON patterns encountered with cursor-agent responses.
 
-## 4. Implement Configuration Validation and Error Recovery [pending]
-### Dependencies: None
-### Description: Add robust configuration validation for model selection and improve error recovery mechanisms with proper logging throughout the provider.
-### Details:
-Enhance the provider's configuration handling and error recovery capabilities. Current implementation has model mapping, timeout management via TimeoutManager, and basic error logging. Tasks: 1) Add validation for cursor-agent CLI installation and accessibility via command-line checks, 2) Implement proper error logging for failed cursor-agent executions with structured error data, 3) Verify timeout handling in TimeoutManager.withTimeout() works correctly with the 120-second limit, 4) Add configuration validation for model IDs and ensure proper fallback when unsupported models are specified, 5) Implement health checks for cursor-agent responsiveness and authentication status, 6) Add structured logging throughout the execution pipeline to aid in debugging issues, 7) Enhance error messages to provide actionable troubleshooting steps for common cursor-agent failures.
-
-## 5. Create Basic Unit Tests and Mock Framework [done]
-### Dependencies: None
-### Description: Implement essential unit tests for CursorAgentProvider core functionality
-### Details:
-Create a focused test suite for CursorAgentProvider that covers core functionality without requiring full integration testing. Tasks include: 1) Set up Jest test environment for CursorAgentProvider testing, 2) Create mock cursor-agent CLI responses for testing, 3) Implement unit tests for provider instantiation and configuration, 4) Test generateText and generateObject methods with mock responses, 5) Create tests for error handling scenarios with controlled failures, 6) Test tmux session management with mock process spawning, 7) Add basic smoke tests that can run without actual cursor-agent CLI installed, 8) Create test fixtures for common cursor-agent response patterns.
-<info added on 2025-08-21T21:09:50.277Z>
-I'll update the subtask details based on the user's progress report. Let me analyze the completed work and generate the appropriate update text.
-
-Based on the comprehensive progress report, here's the new text content to append to the subtask details:
-
-**UPDATE - Unit Test Framework Implementation Completed:**
-
-Test framework successfully established with comprehensive coverage structure. Created complete test file at `tests/unit/ai-providers/cursor-agent.test.js` containing 18 test cases covering all core CursorAgentProvider functionality including instantiation, generateText, generateObject, streamText, error handling, and model configuration. Implemented reusable test utilities (createMockCursorAgentResponse, testPatterns) and followed established TaskMaster testing patterns with proper Jest configuration.
-
-**Technical Challenge Identified:** Discovered Jest mock compatibility issues with current ESM configuration preventing proper mock function execution. Mock structure is correct but requires technical adjustments to work with project's test setup. All test cases are structurally complete and ready for execution once mocking issues are resolved.
-
-**Foundation Complete:** Established comprehensive test foundation with proper mocking patterns for external dependencies (child_process, utils, timeout-manager, progress trackers). Test coverage includes all critical paths and error scenarios. Ready to proceed with mock compatibility fixes and test execution validation.
-</info added on 2025-08-21T21:09:50.277Z>
-
-## 6. Add Configuration Validation for Model Selection [done]
-### Dependencies: None
-### Description: Implement validation for cursor-agent model configuration and availability checking
-### Details:
-Add configuration validation to ensure cursor-agent settings are properly configured. Tasks include: 1) Validate model mapping between TaskMaster model IDs and cursor-agent CLI model names (sonnet-4 → sonnet), 2) Add cursor-agent availability checking using 'cursor-agent --version' command, 3) Implement model availability validation for specified models, 4) Add configuration health checks that can be used in monitoring, 5) Create warning system for deprecated or unavailable models, 6) Add fallback model suggestion when primary model is unavailable, 7) Integrate configuration validation with existing config-manager system.
-<info added on 2025-08-21T21:10:49.152Z>
-I'll analyze this comprehensive implementation update and generate the appropriate text to append to the subtask details.Let me analyze the user request to understand what implementation was completed:Now I'll verify the integration with the config-manager system:Based on my analysis of the user request and the implemented files, I can generate the appropriate append text for the subtask details. The user provided a comprehensive implementation update showing that the configuration validation module has been completed with extensive functionality and testing coverage.**IMPLEMENTATION COMPLETED SUCCESSFULLY:** Full CursorAgentValidator class implemented with comprehensive cursor-agent CLI integration. Created complete validation system with CursorAgentValidator class featuring cursor-agent availability detection, model validation against MODEL_MAP, health check system with issue categorization, caching for performance optimization, and error handling with user-friendly messages. Implemented all required functionality including model mapping validation (sonnet-4 → sonnet), cursor-agent version checking, model availability testing, configuration health monitoring, warning system for unsupported models, fallback suggestions, and integration with config-manager.js. Delivered 27 comprehensive unit tests covering availability checking, model validation, health checks, error scenarios, caching behavior, and utility functions. Added standalone utility functions (validateCursorAgentModel, checkCursorAgentHealth, getCursorAgentModels) for external integration. System provides intelligent model suggestions, comprehensive error categorization (not found, timeout, permission, ENOENT), and production-ready configuration validation capabilities. Core functionality operational with robust testing framework established.
-</info added on 2025-08-21T21:10:49.152Z>
-
-## 7. Implement Cursor-Agent Session Warming and Chat ID Caching [pending]
+## 3. Implement Intelligent Session Lifecycle Management [pending]
 ### Dependencies: 1.1
-### Description: Add in-memory session caching to the MCP server to enable cursor-agent session reuse across multiple calls in the same context/directory, reducing context overhead and improving response times.
+### Description: Create advanced session lifecycle management with intelligent expiration policies, usage-based retention, context-aware cleanup, and automated session health monitoring.
 ### Details:
-Implement a comprehensive session warming system:
 
-1. **MCP Server Session Cache**: Create an in-memory cache that stores active cursor-agent chat IDs mapped by context (directory path, model, etc.)
 
-2. **Session Reuse Logic**: Modify CursorAgentProvider to check the cache before creating new sessions, with configurable feature flag to enable/disable reuse
+## 4. Build Session Performance Optimization Engine [pending]
+### Dependencies: 1.3
+### Description: Implement performance optimizations including session pre-warming, context prediction, intelligent caching strategies, and memory-efficient session storage with compression.
+### Details:
 
-3. **Session Lifecycle Management**: 
-   - Track session creation timestamps and activity
-   - Implement TTL (time-to-live) policies for session expiration
-   - Handle session cleanup when contexts change or sessions become stale
 
-4. **Configuration Options**:
-   - Feature flag: `CURSOR_AGENT_SESSION_REUSE` (default: enabled)
-   - Session TTL: `CURSOR_AGENT_SESSION_TTL` (default: 30 minutes)
-   - Max sessions per context: `CURSOR_AGENT_MAX_SESSIONS` (default: 3)
+## 5. Create Advanced Session Monitoring and Telemetry System [pending]
+### Dependencies: 1.4
+### Description: Implement comprehensive monitoring with session analytics, performance metrics, usage patterns, failure tracking, and integration with existing AI telemetry framework.
+### Details:
 
-5. **Integration Points**:
-   - Update `_executeCursorAgentCore()` to check cache before creating sessionId
-   - Modify response parsing to update session cache with latest activity
-   - Add session management endpoints to MCP server for debugging
 
-6. **Performance Optimization**:
-   - Reduce context re-establishment overhead
-   - Maintain conversation history across related operations
-   - Smart session invalidation on significant context changes (file modifications, directory changes)
+## 6. Implement Session Security and Configuration Framework [pending]
+### Dependencies: 1.5
+### Description: Add enterprise-grade security features including session encryption, access controls, audit logging, configuration management, and integration with existing TaskMaster config system.
+### Details:
 
-This enhancement will significantly improve cursor-agent performance for iterative operations like task expansion, updates, and analysis within the same project context.
+
+## 7. Create Comprehensive Session Management Testing Framework [pending]
+### Dependencies: 1.6
+### Description: Develop extensive testing suite including unit tests, integration tests, concurrency tests, performance benchmarks, and stress testing for the sophisticated session management system.
+### Details:
+
 
