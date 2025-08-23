@@ -656,7 +656,10 @@ function isApiKeySet(providerName, session = null, projectRoot = null) {
 	}
 
 	// Claude Code and Cursor Agent don't require API keys
-	if (providerName?.toLowerCase() === 'claude-code' || providerName?.toLowerCase() === 'cursor-agent') {
+	if (
+		providerName?.toLowerCase() === 'claude-code' ||
+		providerName?.toLowerCase() === 'cursor-agent'
+	) {
 		return true; // No API key needed
 	}
 

@@ -18,7 +18,8 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 
 		// Cursor-agent specific properties
 		this.operationType = options.operationType || 'cursor-agent';
-		this.operationDescription = options.operationDescription || 'Processing request';
+		this.operationDescription =
+			options.operationDescription || 'Processing request';
 		this.currentPhase = 'initializing';
 		this.totalCost = 0;
 		this.currency = 'USD';
@@ -26,11 +27,11 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 		this.isRecursive = options.isRecursive || false;
 		this.recursiveDepth = 0;
 		this.maxRecursiveDepth = options.maxRecursiveDepth || 1;
-		
+
 		// Phase tracking for complex operations
 		this.phases = options.phases || [
 			'Starting cursor-agent',
-			'Processing request', 
+			'Processing request',
 			'Generating response',
 			'Finalizing'
 		];
@@ -94,7 +95,7 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 	 */
 	updateProgress(completed, phase = null) {
 		this.completedUnits = completed;
-		
+
 		if (phase) {
 			this.currentPhase = phase;
 		}
@@ -121,7 +122,13 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 	/**
 	 * Update token usage with cost calculation
 	 */
-	updateTokensWithCost(tokensIn, tokensOut, inputCostPer1M = 0, outputCostPer1M = 0, isEstimate = false) {
+	updateTokensWithCost(
+		tokensIn,
+		tokensOut,
+		inputCostPer1M = 0,
+		outputCostPer1M = 0,
+		isEstimate = false
+	) {
 		// Update base token tracking
 		this.updateTokens(tokensIn, tokensOut, isEstimate);
 
@@ -144,7 +151,7 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 		if (this.currentPhaseIndex < this.phases.length - 1) {
 			this.currentPhaseIndex++;
 			this.currentPhase = this.phases[this.currentPhaseIndex];
-			
+
 			// Calculate progress based on phase completion
 			const phaseProgress = this.currentPhaseIndex / (this.phases.length - 1);
 			this.updateProgress(phaseProgress, this.currentPhase);
@@ -156,7 +163,10 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 	 */
 	updateRecursiveDepth(depth) {
 		this.recursiveDepth = depth;
-		this.updateProgress(depth / this.maxRecursiveDepth, `Recursion depth ${depth}`);
+		this.updateProgress(
+			depth / this.maxRecursiveDepth,
+			`Recursion depth ${depth}`
+		);
 	}
 
 	/**
@@ -205,16 +215,16 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 	complete(finalMessage = 'Operation completed successfully') {
 		this.currentPhase = finalMessage;
 		this.completedUnits = this.numUnits;
-		
+
 		if (this.progressBar) {
 			this.progressBar.update(this.numUnits, {
 				[this.unitNamePlural]: `${this.numUnits}/${this.numUnits}`,
 				operationType: this.operationType
 			});
 		}
-		
+
 		this._updateTimeTokensBar();
-		
+
 		// Stop after a brief delay to show completion
 		setTimeout(() => this.stop(), 500);
 	}
@@ -225,7 +235,7 @@ export class CursorAgentProgressTracker extends BaseProgressTracker {
 	error(errorMessage = 'Operation failed') {
 		this.currentPhase = `❌ ${errorMessage}`;
 		this._updateTimeTokensBar();
-		
+
 		// Stop immediately on error
 		setTimeout(() => this.stop(), 1000);
 	}
@@ -264,7 +274,10 @@ export function createCursorAgentProgressTracker(options = {}) {
 /**
  * Factory function for recursive operation progress tracking
  */
-export function createRecursiveCursorAgentProgressTracker(maxDepth = 3, operationType = 'recursive-expand') {
+export function createRecursiveCursorAgentProgressTracker(
+	maxDepth = 3,
+	operationType = 'recursive-expand'
+) {
 	return new CursorAgentProgressTracker({
 		operationType,
 		operationDescription: `Recursive ${operationType} operation`,

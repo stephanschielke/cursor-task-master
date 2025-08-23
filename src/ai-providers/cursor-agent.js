@@ -12,7 +12,10 @@ import fs from 'fs';
 import { log } from '../../scripts/modules/utils.js';
 import { TimeoutManager } from '../utils/timeout-manager.js';
 import { jsonrepair } from 'jsonrepair';
-import { createCursorAgentProgressTracker, createRecursiveCursorAgentProgressTracker } from '../progress/cursor-agent-progress-tracker.js';
+import {
+	createCursorAgentProgressTracker,
+	createRecursiveCursorAgentProgressTracker
+} from '../progress/cursor-agent-progress-tracker.js';
 
 export class CursorAgentProvider extends BaseAIProvider {
 	constructor() {
@@ -71,7 +74,9 @@ export class CursorAgentProvider extends BaseAIProvider {
 			};
 		} catch (error) {
 			log('cursor-agent client initialization error:', error);
-			throw new Error(`Cursor Agent client initialization failed: ${error.message}`);
+			throw new Error(
+				`Cursor Agent client initialization failed: ${error.message}`
+			);
 		}
 	}
 
@@ -86,7 +91,8 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * @returns {Promise<object>} Generated text response
 	 */
 	async generateText(options, providerParams = {}) {
-		const progressTracker = options.progressTracker || providerParams.progressTracker;
+		const progressTracker =
+			options.progressTracker || providerParams.progressTracker;
 
 		try {
 			// Start progress tracking if enabled
@@ -112,7 +118,11 @@ export class CursorAgentProvider extends BaseAIProvider {
 				progressTracker.updateProgress(0.1, 'Executing cursor-agent');
 			}
 
-			const result = await this.executeCursorAgent(args, prompt, progressTracker);
+			const result = await this.executeCursorAgent(
+				args,
+				prompt,
+				progressTracker
+			);
 
 			if (progressTracker) {
 				progressTracker.updateProgress(0.9, 'Processing cursor-agent response');
@@ -131,7 +141,13 @@ export class CursorAgentProvider extends BaseAIProvider {
 
 			if (progressTracker) {
 				// Estimate cost (free for cursor-agent but show token usage)
-				progressTracker.updateTokensWithCost(inputTokens, outputTokens, 0, 0, false);
+				progressTracker.updateTokensWithCost(
+					inputTokens,
+					outputTokens,
+					0,
+					0,
+					false
+				);
 				progressTracker.complete('Text generation completed');
 			}
 
@@ -163,11 +179,15 @@ export class CursorAgentProvider extends BaseAIProvider {
 	 * @returns {Promise<object>} Generated object response
 	 */
 	async generateObject(options, providerParams = {}) {
-		const progressTracker = options.progressTracker || providerParams.progressTracker;
+		const progressTracker =
+			options.progressTracker || providerParams.progressTracker;
 
 		try {
 			if (progressTracker) {
-				progressTracker.updateProgress(0, 'Preparing structured generation request');
+				progressTracker.updateProgress(
+					0,
+					'Preparing structured generation request'
+				);
 			}
 
 			// For JSON generation, bypass the formatMessages enhancements that make cursor-agent conversational
@@ -178,7 +198,10 @@ export class CursorAgentProvider extends BaseAIProvider {
 			let schemaInstructions = '';
 			if (options.schema && options.objectName) {
 				// Convert Zod schema to readable format for cursor-agent
-				schemaInstructions = this._buildSchemaInstructions(options.schema, options.objectName);
+				schemaInstructions = this._buildSchemaInstructions(
+					options.schema,
+					options.objectName
+				);
 			}
 
 			// Create explicit JSON-only instructions for cursor-agent
@@ -190,25 +213,30 @@ IMPORTANT: Respond with ONLY valid JSON that matches the required structure abov
 
 Do not use any tools or commands. Do not provide explanations. Just return clean JSON.`;
 
-			const textResult = await this.generateText({
-				...options,
-				messages: schemaPrompt,
-				progressTracker: progressTracker
-			}, providerParams);
+			const textResult = await this.generateText(
+				{
+					...options,
+					messages: schemaPrompt,
+					progressTracker: progressTracker
+				},
+				providerParams
+			);
 
-		// Extract JSON from the response
-		let jsonStr = textResult?.text;
+			// Extract JSON from the response
+			let jsonStr = textResult?.text;
 
-		// Check if we have valid text response
-		if (!jsonStr || typeof jsonStr !== 'string') {
-			throw new Error(`Invalid response from cursor-agent: expected text string, got ${typeof jsonStr}. Response: ${JSON.stringify(textResult)}`);
-		}
+			// Check if we have valid text response
+			if (!jsonStr || typeof jsonStr !== 'string') {
+				throw new Error(
+					`Invalid response from cursor-agent: expected text string, got ${typeof jsonStr}. Response: ${JSON.stringify(textResult)}`
+				);
+			}
 
-		// Try to find JSON in the response if it's wrapped in other text
-		const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-		if (jsonMatch) {
-			jsonStr = jsonMatch[0];
-		}
+			// Try to find JSON in the response if it's wrapped in other text
+			const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+			if (jsonMatch) {
+				jsonStr = jsonMatch[0];
+			}
 
 			try {
 				const parsedObject = JSON.parse(jsonStr);
@@ -233,7 +261,9 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 						finishReason: 'stop'
 					};
 				} catch (repairError) {
-					throw new Error(`Failed to parse JSON response: ${parseError.message}. Raw response: ${jsonStr}`);
+					throw new Error(
+						`Failed to parse JSON response: ${parseError.message}. Raw response: ${jsonStr}`
+					);
 				}
 			}
 		} catch (error) {
@@ -251,7 +281,7 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 		try {
 			// Use our generateObject method and wrap it in a stream-like interface
 			const result = await this.generateObject(options);
-			
+
 			// Return the expected stream object structure with partialObjectStream (not objectStream)
 			return {
 				partialObjectStream: async function* () {
@@ -289,7 +319,12 @@ All fields are required strings except dependencies which should be null for new
 			}
 
 			// Check if this looks like PRD parsing based on schema structure
-			if (schema && schema.properties && schema.properties.tasks && schema.properties.metadata) {
+			if (
+				schema &&
+				schema.properties &&
+				schema.properties.tasks &&
+				schema.properties.metadata
+			) {
 				return `Return a JSON object with exactly this structure (do NOT wrap in "${objectName}" or any other key):
 {
   "tasks": [
@@ -330,10 +365,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		const modelMap = {
 			'sonnet-4': 'sonnet',
 			'gpt-5': 'gpt-5',
-			'opus': 'opus',
+			opus: 'opus',
 			// Keep original names as fallback
-			'sonnet': 'sonnet',
-			'gpt5': 'gpt-5'
+			sonnet: 'sonnet',
+			gpt5: 'gpt-5'
 		};
 
 		return modelMap[modelId] || modelId;
@@ -385,9 +420,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 	async executeCursorAgent(args, prompt, progressTracker = null) {
 		// FIXED: Dynamic timeout based on operation type
 		// Research operations get longer timeout, regular operations get shorter
-		const isResearchOperation = prompt.toLowerCase().includes('research') ||
-		                           prompt.toLowerCase().includes('complexity') ||
-		                           prompt.toLowerCase().includes('analyze');
+		const isResearchOperation =
+			prompt.toLowerCase().includes('research') ||
+			prompt.toLowerCase().includes('complexity') ||
+			prompt.toLowerCase().includes('analyze');
 		const timeoutMs = isResearchOperation ? 300000 : 120000; // 5min for research, 2min for regular
 
 		if (progressTracker) {
@@ -395,15 +431,25 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		}
 
 		// FIXED: Single timeout mechanism - let the core handle it instead of competing timeouts
-		return await this._executeCursorAgentCore(args, prompt, progressTracker, timeoutMs);
+		return await this._executeCursorAgentCore(
+			args,
+			prompt,
+			progressTracker,
+			timeoutMs
+		);
 	}
 
-		/**
+	/**
 	 * Core cursor-agent execution logic with real-time stdout monitoring (Option 1 - Elegant)
 	 * FIXED: Single timeout mechanism, optimized for research operations
 	 * @private
 	 */
-	async _executeCursorAgentCore(args, prompt, progressTracker = null, timeoutMs = 120000) {
+	async _executeCursorAgentCore(
+		args,
+		prompt,
+		progressTracker = null,
+		timeoutMs = 120000
+	) {
 		return new Promise((resolve, reject) => {
 			const sessionId = `cursor-agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 			let tmpFile = null;
@@ -454,11 +500,20 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 					// FIXED: Reduce debug logging for long operations to prevent interference
 					if (!isResearchOp || outputBuffer.length % 10000 === 0) {
-						log('DEBUG: Received chunk length:', chunk.length, 'total buffer:', outputBuffer.length);
+						log(
+							'DEBUG: Received chunk length:',
+							chunk.length,
+							'total buffer:',
+							outputBuffer.length
+						);
 					}
 
 					// OPTIMIZED: Progress tracking for research operations
-					if (progressTracker && isResearchOp && chunk.includes('"type":"assistant"')) {
+					if (
+						progressTracker &&
+						isResearchOp &&
+						chunk.includes('"type":"assistant"')
+					) {
 						progressTracker.updateProgress(0.6, 'AI generating response...');
 					}
 
@@ -471,7 +526,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 						setTimeout(() => {
 							if (!resultFound) {
 								resultFound = true;
-								const parsed = this._parseCompletionFromOutput(outputBuffer, isResearchOp);
+								const parsed = this._parseCompletionFromOutput(
+									outputBuffer,
+									isResearchOp
+								);
 
 								if (parsed) {
 									log('cursor-agent response received (direct):', {
@@ -485,7 +543,11 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 									resolve(parsed);
 								} else {
 									cleanup();
-									reject(new Error('Failed to parse cursor-agent result despite finding marker'));
+									reject(
+										new Error(
+											'Failed to parse cursor-agent result despite finding marker'
+										)
+									);
 								}
 							}
 						}, bufferTime); // Longer buffer for research operations
@@ -502,13 +564,24 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 				child.on('close', (code) => {
 					if (!resultFound) {
-						log('DEBUG: Process closed with code', code, 'buffer length:', outputBuffer.length);
+						log(
+							'DEBUG: Process closed with code',
+							code,
+							'buffer length:',
+							outputBuffer.length
+						);
 						// FIXED: Show more context for research operations, less for regular ones
 						const contextLength = isResearchOp ? 500 : 300;
-						log('DEBUG: Final buffer content (last chars):', outputBuffer.slice(-contextLength));
+						log(
+							'DEBUG: Final buffer content (last chars):',
+							outputBuffer.slice(-contextLength)
+						);
 
 						// OPTIMIZED: Try parsing with more aggressive cleanup for research operations
-						const parsed = this._parseCompletionFromOutput(outputBuffer, isResearchOp);
+						const parsed = this._parseCompletionFromOutput(
+							outputBuffer,
+							isResearchOp
+						);
 						cleanup();
 
 						if (parsed) {
@@ -516,9 +589,9 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							resolve(parsed);
 						} else {
 							// IMPROVED: Better error message for research vs regular operations
-							const errorMsg = isResearchOp ?
-								`Research operation completed but no result parsed. Buffer: ${outputBuffer.length} chars. Try reducing complexity.` :
-								`cursor-agent exited with code ${code}, no result found. Buffer length: ${outputBuffer.length}`;
+							const errorMsg = isResearchOp
+								? `Research operation completed but no result parsed. Buffer: ${outputBuffer.length} chars. Try reducing complexity.`
+								: `cursor-agent exited with code ${code}, no result found. Buffer length: ${outputBuffer.length}`;
 							reject(new Error(errorMsg));
 						}
 					}
@@ -534,7 +607,9 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 				// FIXED: Use dynamic timeout from parameter instead of hardcoded value
 				const timeout = setTimeout(() => {
 					if (!resultFound) {
-						log(`DEBUG: Timeout reached after ${timeoutMs/1000}s, killing process...`);
+						log(
+							`DEBUG: Timeout reached after ${timeoutMs / 1000}s, killing process...`
+						);
 						if (child && !child.killed) {
 							child.kill('SIGTERM');
 							setTimeout(() => {
@@ -544,7 +619,11 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							}, 5000);
 						}
 						cleanup();
-						reject(new Error(`cursor-agent timeout after ${timeoutMs/1000} seconds`));
+						reject(
+							new Error(
+								`cursor-agent timeout after ${timeoutMs / 1000} seconds`
+							)
+						);
 					}
 				}, timeoutMs); // Dynamic timeout based on operation type
 
@@ -567,15 +646,20 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							fs.unlinkSync(tmpFile);
 							log('DEBUG: Cleaned up temp file:', tmpFile);
 						} catch (fileCleanupError) {
-							log('Warning: Failed to cleanup temp file:', { tmpFile, error: fileCleanupError.message });
+							log('Warning: Failed to cleanup temp file:', {
+								tmpFile,
+								error: fileCleanupError.message
+							});
 						}
 					}
 				};
 
 				if (progressTracker) {
-					progressTracker.updateProgress(0.4, 'Monitoring cursor-agent output in real-time');
+					progressTracker.updateProgress(
+						0.4,
+						'Monitoring cursor-agent output in real-time'
+					);
 				}
-
 			} catch (error) {
 				log('cursor-agent direct execution setup error:', error);
 
@@ -591,7 +675,11 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 					}
 				}
 
-				reject(new Error(`cursor-agent direct execution setup failed: ${error.message}`));
+				reject(
+					new Error(
+						`cursor-agent direct execution setup failed: ${error.message}`
+					)
+				);
 			}
 		});
 	}
@@ -607,9 +695,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 			.replace(/[\x00-\x1F\x7F]/g, ''); // Remove control characters
 
 		// OPTIMIZED: More aggressive search for research operations with larger outputs
-		const resultLineRegex = isResearchOperation ?
-			/"type":"result"[\s\S]*?"result":/g : // More permissive for research
-			/"type":"result"[^}]*}/g;             // Original for regular ops
+		const resultLineRegex = isResearchOperation
+			? /"type":"result"[\s\S]*?"result":/g
+			: // More permissive for research
+				/"type":"result"[^}]*}/g; // Original for regular ops
 		let match;
 		while ((match = resultLineRegex.exec(cleanOutput)) !== null) {
 			// Find the start of the JSON object by looking backwards for opening brace
@@ -644,8 +733,12 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							is_error: isError,
 							usage: {
 								totalTokens: Math.round((resultObj.duration_api_ms || 0) / 100),
-								promptTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.7),
-								completionTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.3)
+								promptTokens: Math.round(
+									((resultObj.duration_api_ms || 0) / 100) * 0.7
+								),
+								completionTokens: Math.round(
+									((resultObj.duration_api_ms || 0) / 100) * 0.3
+								)
 							},
 							finishReason: 'stop',
 							session_id: resultObj.session_id,
@@ -671,7 +764,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		const lines = cleanOutput.split('\n');
 		for (const line of lines) {
 			const trimmedLine = line.trim();
-			if (trimmedLine.includes('"type":"result"') && trimmedLine.includes('"result":')) {
+			if (
+				trimmedLine.includes('"type":"result"') &&
+				trimmedLine.includes('"result":')
+			) {
 				try {
 					const resultObj = JSON.parse(trimmedLine);
 					if (resultObj.type === 'result') {
@@ -683,19 +779,26 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							is_error: isError,
 							usage: {
 								totalTokens: Math.round((resultObj.duration_api_ms || 0) / 100),
-								promptTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.7),
-								completionTokens: Math.round(((resultObj.duration_api_ms || 0) / 100) * 0.3)
+								promptTokens: Math.round(
+									((resultObj.duration_api_ms || 0) / 100) * 0.7
+								),
+								completionTokens: Math.round(
+									((resultObj.duration_api_ms || 0) / 100) * 0.3
+								)
 							},
 							finishReason: 'stop',
 							session_id: resultObj.session_id,
 							request_id: resultObj.request_id
 						};
 
-						log('DEBUG: Successfully parsed cursor-agent result via fallback:', {
-							isError,
-							resultLength: actualResult.length,
-							sessionId: resultObj.session_id
-						});
+						log(
+							'DEBUG: Successfully parsed cursor-agent result via fallback:',
+							{
+								isError,
+								resultLength: actualResult.length,
+								sessionId: resultObj.session_id
+							}
+						);
 
 						return parsed;
 					}
@@ -741,7 +844,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 		if (Array.isArray(messages)) {
 			return messages
-				.map(msg => {
+				.map((msg) => {
 					if (typeof msg === 'string') return msg;
 					if (msg.role && msg.content) {
 						return `${msg.role}: ${msg.content}`;
@@ -786,8 +889,12 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		const isRecursive = mode === 'recursive';
 
 		const strategies = {
-			expand_task: isRecursive ? this.buildTaskExpansionStrategy : this.buildSequentialTaskExpansionStrategy,
-			parse_prd: isRecursive ? this.buildPRDParsingStrategy : this.buildSequentialPRDParsingStrategy,
+			expand_task: isRecursive
+				? this.buildTaskExpansionStrategy
+				: this.buildSequentialTaskExpansionStrategy,
+			parse_prd: isRecursive
+				? this.buildPRDParsingStrategy
+				: this.buildSequentialPRDParsingStrategy,
 			update_task: this.buildTaskUpdateStrategy,
 			add_task: this.buildTaskCreationStrategy,
 			analyze_complexity: this.buildComplexityAnalysisStrategy
@@ -1039,7 +1146,8 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	createProgressTracker(options = {}) {
 		return createCursorAgentProgressTracker({
 			operationType: 'cursor-agent',
-			operationDescription: options.description || 'Processing cursor-agent request',
+			operationDescription:
+				options.description || 'Processing cursor-agent request',
 			...options
 		});
 	}
@@ -1050,7 +1158,10 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 * @param {string} operationType - Type of recursive operation
 	 * @returns {CursorAgentProgressTracker} Configured recursive progress tracker
 	 */
-	createRecursiveProgressTracker(maxDepth = 3, operationType = 'recursive-expand') {
+	createRecursiveProgressTracker(
+		maxDepth = 3,
+		operationType = 'recursive-expand'
+	) {
 		return createRecursiveCursorAgentProgressTracker(maxDepth, operationType);
 	}
 }

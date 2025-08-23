@@ -1,6 +1,6 @@
 /**
  * src/utils/cursor-agent-validator.js
- * 
+ *
  * Configuration validation utilities for cursor-agent CLI integration.
  * Provides validation functions for cursor-agent availability, model selection,
  * and configuration health checks for TaskMaster.
@@ -45,7 +45,6 @@ export class CursorAgentValidator {
 
 			this._cachedAvailability = result;
 			return result;
-
 		} catch (error) {
 			const result = {
 				available: false,
@@ -66,7 +65,7 @@ export class CursorAgentValidator {
 		try {
 			// Check if model exists in our MODEL_MAP
 			const cursorAgentModels = MODEL_MAP['cursor-agent'] || [];
-			const modelObj = cursorAgentModels.find(m => m.id === modelId);
+			const modelObj = cursorAgentModels.find((m) => m.id === modelId);
 
 			if (!modelObj) {
 				return {
@@ -92,7 +91,6 @@ export class CursorAgentValidator {
 				supported: true,
 				error: modelAvailable.available ? undefined : modelAvailable.error
 			};
-
 		} catch (error) {
 			log('error', 'CursorAgentValidator.validateModel error:', error);
 			return {
@@ -120,7 +118,7 @@ export class CursorAgentValidator {
 					type: 'critical',
 					message: 'cursor-agent CLI is not available',
 					details: availability.error,
-					fix: 'Install cursor-agent CLI or ensure it\'s in your PATH'
+					fix: "Install cursor-agent CLI or ensure it's in your PATH"
 				});
 				recommendations.push('Run: npm install -g @cursor/cursor-agent');
 			} else {
@@ -131,15 +129,17 @@ export class CursorAgentValidator {
 			if (config.models) {
 				for (const [role, modelConfig] of Object.entries(config.models)) {
 					if (modelConfig.provider === 'cursor-agent') {
-						const modelValidation = await this.validateModel(modelConfig.modelId);
+						const modelValidation = await this.validateModel(
+							modelConfig.modelId
+						);
 						if (!modelValidation.valid) {
 							issues.push({
 								type: 'warning',
 								message: `Invalid cursor-agent model for ${role} role`,
 								details: `Model '${modelConfig.modelId}' is not available`,
-								fix: modelValidation.suggestion ? 
-									`Consider using: ${modelValidation.suggestion}` : 
-									'Use a supported cursor-agent model'
+								fix: modelValidation.suggestion
+									? `Consider using: ${modelValidation.suggestion}`
+									: 'Use a supported cursor-agent model'
 							});
 						}
 					}
@@ -149,30 +149,35 @@ export class CursorAgentValidator {
 			// Check for authentication (optional but recommended)
 			const authStatus = await this._checkAuthentication();
 			if (authStatus && !authStatus.authenticated) {
-				recommendations.push('Run: cursor-agent login (for better performance)');
+				recommendations.push(
+					'Run: cursor-agent login (for better performance)'
+				);
 			}
 
 			// Check for fallback configuration
 			if (config.models && !this._hasFallbackProvider(config.models)) {
-				recommendations.push('Configure a fallback provider in case cursor-agent is unavailable');
+				recommendations.push(
+					'Configure a fallback provider in case cursor-agent is unavailable'
+				);
 			}
 
 			return {
-				healthy: issues.filter(i => i.type === 'critical').length === 0,
+				healthy: issues.filter((i) => i.type === 'critical').length === 0,
 				issues,
 				recommendations
 			};
-
 		} catch (error) {
 			log('error', 'CursorAgentValidator.performHealthCheck error:', error);
 			return {
 				healthy: false,
-				issues: [{
-					type: 'critical',
-					message: 'Health check failed',
-					details: error.message,
-					fix: 'Check cursor-agent installation and configuration'
-				}],
+				issues: [
+					{
+						type: 'critical',
+						message: 'Health check failed',
+						details: error.message,
+						fix: 'Check cursor-agent installation and configuration'
+					}
+				],
 				recommendations: []
 			};
 		}
@@ -189,8 +194,8 @@ export class CursorAgentValidator {
 
 		const cursorAgentModels = MODEL_MAP['cursor-agent'] || [];
 		const models = cursorAgentModels
-			.filter(m => m.supported)
-			.map(m => ({
+			.filter((m) => m.supported)
+			.map((m) => ({
 				id: m.id,
 				name: this._getModelDisplayName(m.id),
 				swe_score: m.swe_score,
@@ -219,7 +224,10 @@ export class CursorAgentValidator {
 	_categorizeError(error) {
 		const errorMessage = error.message.toLowerCase();
 
-		if (errorMessage.includes('not found') || errorMessage.includes('command not found')) {
+		if (
+			errorMessage.includes('not found') ||
+			errorMessage.includes('command not found')
+		) {
 			return 'cursor-agent CLI not installed or not in PATH';
 		}
 
@@ -247,7 +255,7 @@ export class CursorAgentValidator {
 			// Simple test command to verify model is available
 			// Note: This is a basic availability check, not a full model test
 			const testCommand = `cursor-agent --model=${modelId} --help`;
-			
+
 			execSync(testCommand, {
 				encoding: 'utf8',
 				timeout: 3000,
@@ -255,13 +263,16 @@ export class CursorAgentValidator {
 			});
 
 			return { available: true };
-
 		} catch (error) {
 			// If the help command fails, the model might not be available
 			// However, cursor-agent might not support this exact pattern,
 			// so we'll be conservative and assume it's available if it's in our MODEL_MAP
-			log('debug', `Model test for ${modelId} returned error (this may be normal):`, error.message);
-			
+			log(
+				'debug',
+				`Model test for ${modelId} returned error (this may be normal):`,
+				error.message
+			);
+
 			// Return true for now since cursor-agent model validation is complex
 			// Real validation happens during actual usage
 			return { available: true };
@@ -274,21 +285,21 @@ export class CursorAgentValidator {
 	 */
 	_suggestAlternativeModel(requestedModel, availableModels) {
 		// Find the best alternative based on similar naming or capabilities
-		const supported = availableModels.filter(m => m.supported);
-		
+		const supported = availableModels.filter((m) => m.supported);
+
 		if (supported.length === 0) {
 			return 'No supported cursor-agent models available';
 		}
 
 		// If requesting sonnet-like model, suggest sonnet-4
 		if (requestedModel.toLowerCase().includes('sonnet')) {
-			const sonnet = supported.find(m => m.id.includes('sonnet'));
+			const sonnet = supported.find((m) => m.id.includes('sonnet'));
 			if (sonnet) return sonnet.id;
 		}
 
 		// If requesting gpt-like model, suggest gpt-5
 		if (requestedModel.toLowerCase().includes('gpt')) {
-			const gpt = supported.find(m => m.id.includes('gpt'));
+			const gpt = supported.find((m) => m.id.includes('gpt'));
 			if (gpt) return gpt.id;
 		}
 
@@ -306,9 +317,12 @@ export class CursorAgentValidator {
 			// cursor-agent might not have a direct auth status command
 			// For now, we'll skip this check and return null
 			return null;
-
 		} catch (error) {
-			log('debug', 'Authentication check failed (this may be normal):', error.message);
+			log(
+				'debug',
+				'Authentication check failed (this may be normal):',
+				error.message
+			);
 			return null;
 		}
 	}
@@ -319,7 +333,9 @@ export class CursorAgentValidator {
 	 */
 	_hasFallbackProvider(modelsConfig) {
 		const fallback = modelsConfig.fallback;
-		return fallback && fallback.provider && fallback.provider !== 'cursor-agent';
+		return (
+			fallback && fallback.provider && fallback.provider !== 'cursor-agent'
+		);
 	}
 
 	/**
@@ -330,7 +346,7 @@ export class CursorAgentValidator {
 		const displayNames = {
 			'sonnet-4': 'Claude 4 (Sonnet)',
 			'gpt-5': 'GPT-5',
-			'opus': 'Claude 3.5 Opus'
+			opus: 'Claude 3.5 Opus'
 		};
 
 		return displayNames[modelId] || modelId;

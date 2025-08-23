@@ -26,7 +26,12 @@ jest.unstable_mockModule('../../../scripts/modules/utils.js', () => ({
 }));
 
 // Import after mocking
-const { CursorAgentValidator, cursorAgentValidator, validateCursorAgentModel, checkCursorAgentHealth } = await import('../../../src/utils/cursor-agent-validator.js');
+const {
+	CursorAgentValidator,
+	cursorAgentValidator,
+	validateCursorAgentModel,
+	checkCursorAgentHealth
+} = await import('../../../src/utils/cursor-agent-validator.js');
 const { execSync } = await import('child_process');
 
 jest.mock('../../../scripts/modules/config-manager.js', () => ({
@@ -74,7 +79,7 @@ describe('CursorAgentValidator', () => {
 		jest.clearAllMocks();
 		validator = new CursorAgentValidator();
 		validator.clearCache(); // Ensure clean state for each test
-		
+
 		// Reset mockExecSync with default behavior
 		mockExecSync.mockReturnValue('cursor-agent version 1.0.0\n');
 	});
@@ -151,7 +156,7 @@ describe('CursorAgentValidator', () => {
 
 			// First call
 			const result1 = await validator.checkCursorAgentAvailability();
-			// Second call  
+			// Second call
 			const result2 = await validator.checkCursorAgentAvailability();
 
 			expect(result1).toBe(result2); // Should be same object reference
@@ -212,7 +217,9 @@ describe('CursorAgentValidator', () => {
 
 		test('should handle validation errors gracefully', async () => {
 			// Mock an error in the validation process
-			jest.spyOn(validator, '_testModelWithCLI').mockRejectedValue(new Error('Test error'));
+			jest
+				.spyOn(validator, '_testModelWithCLI')
+				.mockRejectedValue(new Error('Test error'));
 
 			const result = await validator.validateModel('sonnet-4');
 
@@ -235,7 +242,9 @@ describe('CursorAgentValidator', () => {
 			const result = await validator.performHealthCheck(config);
 
 			expect(result.healthy).toBe(true);
-			expect(result.issues.filter(i => i.type === 'critical')).toHaveLength(0);
+			expect(result.issues.filter((i) => i.type === 'critical')).toHaveLength(
+				0
+			);
 		});
 
 		test('should fail health check when cursor-agent unavailable', async () => {
@@ -246,8 +255,10 @@ describe('CursorAgentValidator', () => {
 			const result = await validator.performHealthCheck({});
 
 			expect(result.healthy).toBe(false);
-			expect(result.issues.some(i => i.type === 'critical')).toBe(true);
-			expect(result.recommendations).toContain('Run: npm install -g @cursor/cursor-agent');
+			expect(result.issues.some((i) => i.type === 'critical')).toBe(true);
+			expect(result.recommendations).toContain(
+				'Run: npm install -g @cursor/cursor-agent'
+			);
 		});
 
 		test('should warn about invalid models', async () => {
@@ -261,10 +272,13 @@ describe('CursorAgentValidator', () => {
 
 			const result = await validator.performHealthCheck(config);
 
-			expect(result.issues.some(i => 
-				i.type === 'warning' && 
-				i.message.includes('Invalid cursor-agent model')
-			)).toBe(true);
+			expect(
+				result.issues.some(
+					(i) =>
+						i.type === 'warning' &&
+						i.message.includes('Invalid cursor-agent model')
+				)
+			).toBe(true);
 		});
 
 		test('should recommend fallback provider', async () => {
@@ -279,9 +293,9 @@ describe('CursorAgentValidator', () => {
 
 			const result = await validator.performHealthCheck(config);
 
-			expect(result.recommendations.some(r => 
-				r.includes('fallback provider')
-			)).toBe(true);
+			expect(
+				result.recommendations.some((r) => r.includes('fallback provider'))
+			).toBe(true);
 		});
 
 		test('should handle health check errors gracefully', async () => {
@@ -293,7 +307,7 @@ describe('CursorAgentValidator', () => {
 			const result = await validator.performHealthCheck({});
 
 			expect(result.healthy).toBe(false);
-			expect(result.issues.some(i => i.type === 'critical')).toBe(true);
+			expect(result.issues.some((i) => i.type === 'critical')).toBe(true);
 		});
 	});
 
@@ -317,8 +331,8 @@ describe('CursorAgentValidator', () => {
 
 		test('should provide display names for known models', () => {
 			const models = validator.getAvailableModels();
-			const sonnet = models.find(m => m.id === 'sonnet-4');
-			const gpt = models.find(m => m.id === 'gpt-5');
+			const sonnet = models.find((m) => m.id === 'sonnet-4');
+			const gpt = models.find((m) => m.id === 'gpt-5');
 
 			expect(sonnet.name).toBe('Claude 4 (Sonnet)');
 			expect(gpt.name).toBe('GPT-5');
@@ -406,8 +420,8 @@ export const mockCursorAgentAvailable = () => {
 export const mockCursorAgentUnavailable = (errorType = 'not found') => {
 	const errorMessages = {
 		'not found': 'command not found: cursor-agent',
-		'timeout': 'timeout exceeded',
-		'permission': 'Permission denied'
+		timeout: 'timeout exceeded',
+		permission: 'Permission denied'
 	};
 
 	mockExecSync.mockImplementation(() => {
