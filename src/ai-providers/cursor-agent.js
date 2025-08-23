@@ -16,6 +16,7 @@ import {
 	createCursorAgentProgressTracker,
 	createRecursiveCursorAgentProgressTracker
 } from '../progress/cursor-agent-progress-tracker.js';
+import { sessionManager } from '../utils/cursor-agent-session-manager.js';
 
 export class CursorAgentProvider extends BaseAIProvider {
 	constructor() {
@@ -56,20 +57,75 @@ export class CursorAgentProvider extends BaseAIProvider {
 		try {
 			return {
 				generateText: async (options) => {
-					return await this.generateText(options, params);
+					try {
+						// Add model validation before execution
+						if (options.model && !this.isModelSupported(options.model)) {
+							throw new Error(
+								`Unsupported model: ${options.model}. Supported models: ${this.getSupportedModels().join(', ')}`
+							);
+						}
+						return await this.generateText(options, params);
+					} catch (error) {
+						log('generateText client method error:', error);
+						throw new Error(`Generate text failed: ${error.message}`);
+					}
 				},
 				generateObject: async (options) => {
-					return await this.generateObject(options, params);
+					try {
+						// Add model validation before execution
+						if (options.model && !this.isModelSupported(options.model)) {
+							throw new Error(
+								`Unsupported model: ${options.model}. Supported models: ${this.getSupportedModels().join(', ')}`
+							);
+						}
+						return await this.generateObject(options, params);
+					} catch (error) {
+						log('generateObject client method error:', error);
+						throw new Error(`Generate object failed: ${error.message}`);
+					}
 				},
 				streamText: async (options) => {
-					// For now, we'll use generateText and return a simple stream-like object
-					const result = await this.generateText(options, params);
-					return {
-						textStream: async function* () {
-							yield result.text;
-						},
-						usage: result.usage
-					};
+					try {
+						// Enhanced streaming implementation with proper AI SDK interface
+						if (options.model && !this.isModelSupported(options.model)) {
+							throw new Error(
+								`Unsupported model: ${options.model}. Supported models: ${this.getSupportedModels().join(', ')}`
+							);
+						}
+
+						const result = await this.generateText(options, params);
+
+						return {
+							textStream: async function* () {
+								// Simulate streaming by yielding chunks of text
+								const text = result.text;
+								const chunkSize = Math.max(1, Math.floor(text.length / 10)); // 10 chunks
+
+								for (let i = 0; i < text.length; i += chunkSize) {
+									const chunk = text.slice(i, i + chunkSize);
+									yield chunk;
+
+									// Add small delay to simulate streaming
+									await new Promise(resolve => setTimeout(resolve, 50));
+								}
+							},
+							text: result.text,
+							usage: result.usage,
+							finishReason: result.finishReason
+						};
+					} catch (error) {
+						log('streamText client method error:', error);
+						throw new Error(`Stream text failed: ${error.message}`);
+					}
+				},
+				// Add validation method for CLI setup
+				validateSetup: async (modelId = null) => {
+					try {
+						return await this.validateCursorAgentSetup(modelId);
+					} catch (error) {
+						log('validateSetup client method error:', error);
+						throw new Error(`Setup validation failed: ${error.message}`);
+					}
 				}
 			};
 		} catch (error) {
@@ -236,6 +292,13 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 			const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
 			if (jsonMatch) {
 				jsonStr = jsonMatch[0];
+			} else {
+				// No JSON structure found - check if it's clearly non-JSON content
+				if (!jsonStr.includes('{') && !jsonStr.includes('[')) {
+					throw new Error(
+						`No JSON structure found in response. Content appears to be plain text: ${jsonStr.slice(0, 100)}...`
+					);
+				}
 			}
 
 			try {
@@ -248,7 +311,15 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 			} catch (parseError) {
 				log('Failed to parse JSON response:', { jsonStr, parseError });
 
-				// Try to repair the JSON
+				// Check if this is clearly not JSON before attempting repair
+				const trimmed = jsonStr.trim();
+				if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+					throw new Error(
+						`Invalid JSON response: Content does not appear to be JSON. Raw response: ${jsonStr}`
+					);
+				}
+
+				// Try to repair the JSON only for content that looks like malformed JSON
 				try {
 					const { jsonrepair } = await import('jsonrepair');
 					const repairedJson = jsonrepair(jsonStr);
@@ -304,9 +375,40 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 	 */
 	_buildSchemaInstructions(schema, objectName) {
 		try {
-			// For TaskMaster schemas, provide explicit JSON structure
-			if (objectName === 'newTaskData') {
-				return `Return a JSON object with exactly this structure:
+			// Schema instruction templates
+			const templates = this._getSchemaTemplates();
+
+			// Check for exact object name matches first
+			if (templates[objectName]) {
+				return templates[objectName];
+			}
+
+			// Check for pattern-based matches
+			const patternMatches = this._matchSchemaPatterns(schema, objectName);
+			if (patternMatches) {
+				return patternMatches;
+			}
+
+			// Try to build generic instructions from schema structure
+			if (schema && schema.properties) {
+				return this._buildGenericSchemaInstructions(schema, objectName);
+			}
+
+			// Final fallback
+			return `Return a valid JSON object with the appropriate structure for: ${objectName}`;
+		} catch (error) {
+			log('Error building schema instructions:', error);
+			return `Return a valid JSON object.`;
+		}
+	}
+
+	/**
+	 * Get predefined schema templates for known object types
+	 * @returns {object} Object with template definitions
+	 */
+	_getSchemaTemplates() {
+		return {
+			'newTaskData': `Return a JSON object with exactly this structure:
 {
   "title": "Clear, concise title for the task",
   "description": "A one or two sentence description of the task",
@@ -315,23 +417,52 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
   "dependencies": null
 }
 
-All fields are required strings except dependencies which should be null for new tasks.`;
-			}
+All fields are required strings except dependencies which should be null for new tasks.`,
 
-			// Check if this looks like PRD parsing based on schema structure
-			if (
-				schema &&
-				schema.properties &&
-				schema.properties.tasks &&
-				schema.properties.metadata
-			) {
-				return `Return a JSON object with exactly this structure (do NOT wrap in "${objectName}" or any other key):
+			'subtaskData': `Return a JSON object with exactly this structure:
+{
+  "title": "Clear, concise title for the subtask",
+  "description": "Brief description of what this subtask accomplishes",
+  "details": "Implementation steps and technical considerations",
+  "dependencies": [],
+  "status": "pending"
+}
+
+All fields are required. Dependencies should be an array of task/subtask IDs.`,
+
+			'complexityAnalysis': `Return a JSON object with exactly this structure:
+{
+  "taskId": "ID of the analyzed task",
+  "complexityScore": 7,
+  "reasoningFactors": ["Factor 1", "Factor 2"],
+  "recommendedSubtasks": 5,
+  "expansionRecommendation": "Detailed explanation of why expansion is recommended"
+}
+
+complexityScore should be 1-10, reasoningFactors should list complexity drivers.`,
+
+			'tasks_data': `Return a properly structured JSON object that matches the expected format for task-related data.`,
+
+			'generated_object': `Return a properly structured JSON object that matches the expected format for the request.`
+		};
+	}
+
+	/**
+	 * Match schema patterns for dynamic instruction generation
+	 * @param {object} schema - Zod schema object
+	 * @param {string} objectName - Name of the object
+	 * @returns {string|null} Matched template or null
+	 */
+	_matchSchemaPatterns(schema, objectName) {
+		// PRD parsing pattern
+		if (schema && schema.properties && schema.properties.tasks && schema.properties.metadata) {
+			return `Return a JSON object with exactly this structure (do NOT wrap in "${objectName}" or any other key):
 {
   "tasks": [
     {
       "id": 1,
       "title": "Task title",
-      "description": "Brief task description", 
+      "description": "Brief task description",
       "details": "Detailed implementation guidance",
       "testStrategy": "How to test and verify completion",
       "priority": "high",
@@ -348,30 +479,241 @@ All fields are required strings except dependencies which should be null for new
 }
 
 CRITICAL: Return the object directly with "tasks" and "metadata" as top-level keys. Do NOT wrap it in a "${objectName}" key.`;
+		}
+
+		// Task list pattern
+		if (schema && schema.properties && schema.properties.tasks && Array.isArray(schema.properties.tasks)) {
+			return `Return a JSON object with a "tasks" array containing task objects with standard TaskMaster structure.`;
+		}
+
+		// Analysis pattern
+		if (objectName.toLowerCase().includes('analysis') || objectName.toLowerCase().includes('complexity')) {
+			return `Return a JSON object containing analysis results with scores, recommendations, and detailed explanations.`;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Build generic schema instructions from schema structure
+	 * @param {object} schema - Zod schema object
+	 * @param {string} objectName - Name of the object
+	 * @returns {string} Generic schema instructions
+	 */
+	_buildGenericSchemaInstructions(schema, objectName) {
+		try {
+			const properties = schema.properties || {};
+			const requiredFields = schema.required || [];
+
+			let instruction = `Return a JSON object for "${objectName}" with the following structure:\n{\n`;
+
+			// Build property examples
+			Object.keys(properties).forEach(key => {
+				const prop = properties[key];
+				let example = this._getPropertyExample(prop, key);
+				instruction += `  "${key}": ${example},\n`;
+			});
+
+			instruction = instruction.slice(0, -2) + '\n}'; // Remove last comma
+
+			if (requiredFields.length > 0) {
+				instruction += `\n\nRequired fields: ${requiredFields.join(', ')}`;
 			}
 
-			if (objectName === 'tasks_data' || objectName === 'generated_object') {
-				return `Return a properly structured JSON object that matches the expected format for the request.`;
-			}
-
-			// Generic schema instruction fallback
-			return `Return a valid JSON object with the appropriate structure for: ${objectName}`;
+			return instruction;
 		} catch (error) {
-			return `Return a valid JSON object.`;
+			return `Return a valid JSON object for: ${objectName}`;
+		}
+	}
+
+	/**
+	 * Get example value for a schema property
+	 * @param {object} property - Schema property definition
+	 * @param {string} key - Property key name
+	 * @returns {string} Example value as string
+	 */
+	_getPropertyExample(property, key) {
+		if (!property) return '"example value"';
+
+		const type = property.type;
+
+		switch (type) {
+			case 'string':
+				if (key.toLowerCase().includes('id')) return '"example-id"';
+				if (key.toLowerCase().includes('title')) return '"Example Title"';
+				if (key.toLowerCase().includes('description')) return '"Example description"';
+				return '"example value"';
+
+			case 'number':
+			case 'integer':
+				if (key.toLowerCase().includes('score')) return '7';
+				if (key.toLowerCase().includes('count')) return '5';
+				return '42';
+
+			case 'boolean':
+				return 'true';
+
+			case 'array':
+				return '[]';
+
+			case 'object':
+				return '{}';
+
+			default:
+				return '"example value"';
 		}
 	}
 
 	mapModelIdToCursorAgent(modelId) {
+		// Handle null/undefined/empty cases
+		if (!modelId) {
+			return modelId;
+		}
+
 		const modelMap = {
+			// Anthropic Claude models
 			'sonnet-4': 'sonnet',
+			'claude-3-sonnet': 'sonnet',
+			'claude-sonnet': 'sonnet',
+			'sonnet': 'sonnet',
+
+			// Claude Opus
+			'opus': 'opus',
+			'claude-3-opus': 'opus',
+			'claude-opus': 'opus',
+
+			// Claude Haiku (if supported)
+			'haiku': 'haiku',
+			'claude-3-haiku': 'haiku',
+			'claude-haiku': 'haiku',
+
+			// OpenAI GPT models
 			'gpt-5': 'gpt-5',
-			opus: 'opus',
-			// Keep original names as fallback
-			sonnet: 'sonnet',
-			gpt5: 'gpt-5'
+			'gpt5': 'gpt-5',
+			'openai-gpt-5': 'gpt-5',
+
+			'gpt-4': 'gpt-4',
+			'gpt4': 'gpt-4',
+			'openai-gpt-4': 'gpt-4',
+
+			'gpt-4-turbo': 'gpt-4-turbo',
+			'gpt4-turbo': 'gpt-4-turbo',
+
+			// o1 models (if supported)
+			'o1': 'o1',
+			'o1-preview': 'o1-preview',
+			'openai-o1': 'o1',
+			'openai-o1-preview': 'o1-preview'
 		};
 
 		return modelMap[modelId] || modelId;
+	}
+
+	/**
+	 * Get list of supported cursor-agent models
+	 * @returns {Array<string>} List of supported model IDs
+	 */
+	getSupportedModels() {
+		return [
+			'sonnet-4', 'sonnet', 'claude-3-sonnet', 'claude-sonnet',
+			'opus', 'claude-3-opus', 'claude-opus',
+			'haiku', 'claude-3-haiku', 'claude-haiku',
+			'gpt-5', 'gpt5', 'openai-gpt-5',
+			'gpt-4', 'gpt4', 'openai-gpt-4',
+			'gpt-4-turbo', 'gpt4-turbo',
+			'o1', 'o1-preview', 'openai-o1', 'openai-o1-preview'
+		];
+	}
+
+	/**
+	 * Validate if a model is supported by cursor-agent
+	 * @param {string} modelId - Model ID to validate
+	 * @returns {boolean} True if model is supported
+	 */
+	isModelSupported(modelId) {
+		if (!modelId) return false;
+
+		const mappedModel = this.mapModelIdToCursorAgent(modelId);
+		const knownCursorAgentModels = ['sonnet', 'opus', 'haiku', 'gpt-5', 'gpt-4', 'gpt-4-turbo', 'o1', 'o1-preview'];
+
+		return knownCursorAgentModels.includes(mappedModel);
+	}
+
+	/**
+	 * Check cursor-agent CLI availability and version
+	 * @returns {Promise<object>} CLI availability information
+	 */
+	async checkCursorAgentCLI() {
+		try {
+			const versionOutput = execSync('cursor-agent --version', {
+				encoding: 'utf8',
+				timeout: 5000,
+				stdio: 'pipe'
+			}).trim();
+
+			const versionMatch = versionOutput.match(/(\d+\.\d+\.\d+)/);
+			const version = versionMatch ? versionMatch[1] : 'unknown';
+
+			return {
+				available: true,
+				version: version,
+				rawOutput: versionOutput
+			};
+		} catch (error) {
+			let errorType = 'unknown';
+			let errorMessage = error.message;
+
+			if (error.code === 'ENOENT') {
+				errorType = 'not_found';
+				errorMessage = 'cursor-agent CLI not found. Please install cursor-agent.';
+			} else if (error.code === 'ETIMEDOUT') {
+				errorType = 'timeout';
+				errorMessage = 'cursor-agent CLI check timed out.';
+			}
+
+			return {
+				available: false,
+				error: errorType,
+				message: errorMessage,
+				details: error
+			};
+		}
+	}
+
+	/**
+	 * Validate cursor-agent CLI is available and ready for use
+	 * @param {string} modelId - Optional model to validate
+	 * @returns {Promise<object>} Validation result
+	 */
+	async validateCursorAgentSetup(modelId = null) {
+		const cliCheck = await this.checkCursorAgentCLI();
+
+		if (!cliCheck.available) {
+			return {
+				valid: false,
+				issue: 'cli_not_available',
+				message: cliCheck.message,
+				details: cliCheck
+			};
+		}
+
+		// Validate model if provided
+		if (modelId && !this.isModelSupported(modelId)) {
+			return {
+				valid: false,
+				issue: 'unsupported_model',
+				message: `Model '${modelId}' is not supported by cursor-agent`,
+				supportedModels: this.getSupportedModels(),
+				details: { modelId, mappedModel: this.mapModelIdToCursorAgent(modelId) }
+			};
+		}
+
+		return {
+			valid: true,
+			cliVersion: cliCheck.version,
+			modelSupported: modelId ? this.isModelSupported(modelId) : true,
+			details: cliCheck
+		};
 	}
 
 	/**
@@ -455,6 +797,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 			let tmpFile = null;
 			let child = null;
 			let resultFound = false;
+			let sessionRegistered = false;
 
 			try {
 				log('Executing cursor-agent directly:', {
@@ -490,6 +833,19 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 					}
 				});
 
+				// Register session with SessionManager for enhanced tracking
+				sessionManager.registerSession(sessionId, {
+					pid: child.pid,
+					childProcess: child,
+					tmpFile: tmpFile
+				}, {
+					operationType: this.detectOperationType(prompt) || 'generateText',
+					projectRoot: process.cwd(),
+					timeoutMs: timeoutMs,
+					isResearch: timeoutMs > 120000 // Research operations have longer timeouts
+				});
+				sessionRegistered = true;
+
 				let outputBuffer = '';
 
 				// OPTIMIZED: Real-time stdout monitoring with reduced logging for research operations
@@ -497,6 +853,11 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 				child.stdout.on('data', (data) => {
 					const chunk = data.toString();
 					outputBuffer += chunk;
+
+					// Update session activity when receiving data
+					if (sessionRegistered) {
+						sessionManager.updateSessionActivity(sessionId);
+					}
 
 					// FIXED: Reduce debug logging for long operations to prevent interference
 					if (!isResearchOp || outputBuffer.length % 10000 === 0) {
@@ -523,7 +884,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 						// FIXED: Give longer buffer for complex research responses
 						const bufferTime = isResearchOp ? 500 : 200;
-						setTimeout(() => {
+						setTimeout(async () => {
 							if (!resultFound) {
 								resultFound = true;
 								const parsed = this._parseCompletionFromOutput(
@@ -539,10 +900,10 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 										isResearch: isResearchOp
 									});
 
-									cleanup();
+									await enhancedCleanup();
 									resolve(parsed);
 								} else {
-									cleanup();
+									await enhancedCleanup();
 									reject(
 										new Error(
 											'Failed to parse cursor-agent result despite finding marker'
@@ -562,7 +923,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 					log('cursor-agent stderr:', data.toString());
 				});
 
-				child.on('close', (code) => {
+				child.on('close', async (code) => {
 					if (!resultFound) {
 						log(
 							'DEBUG: Process closed with code',
@@ -582,7 +943,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 							outputBuffer,
 							isResearchOp
 						);
-						cleanup();
+						await enhancedCleanup();
 
 						if (parsed) {
 							log('DEBUG: Successfully parsed result on close event');
@@ -597,15 +958,15 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 					}
 				});
 
-				child.on('error', (error) => {
+				child.on('error', async (error) => {
 					if (!resultFound) {
-						cleanup();
+						await enhancedCleanup();
 						reject(new Error(`cursor-agent process error: ${error.message}`));
 					}
 				});
 
 				// FIXED: Use dynamic timeout from parameter instead of hardcoded value
-				const timeout = setTimeout(() => {
+				const timeout = setTimeout(async () => {
 					if (!resultFound) {
 						log(
 							`DEBUG: Timeout reached after ${timeoutMs / 1000}s, killing process...`
@@ -618,7 +979,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 								}
 							}, 5000);
 						}
-						cleanup();
+						await enhancedCleanup();
 						reject(
 							new Error(
 								`cursor-agent timeout after ${timeoutMs / 1000} seconds`
@@ -627,29 +988,35 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 					}
 				}, timeoutMs); // Dynamic timeout based on operation type
 
-				const cleanup = () => {
+				// Enhanced cleanup using SessionManager for comprehensive session management
+				const enhancedCleanup = async () => {
 					clearTimeout(timeout);
 
-					// Properly terminate the child process if it's still running
-					if (child && !child.killed) {
-						log('DEBUG: Terminating child process and removing listeners...');
+					if (sessionRegistered) {
+						// Use SessionManager's enhanced cleanup which handles:
+						// - Process termination with verification
+						// - Temp file cleanup with error handling
+						// - Orphaned process detection and cleanup
+						// - Session lifecycle logging
+						await sessionManager.cleanupSession(sessionId);
+					} else {
+						// Fallback cleanup if session wasn't registered
+						if (child && !child.killed) {
+							log('DEBUG: Fallback cleanup - terminating child process...');
+							child.removeAllListeners();
+							child.kill('SIGTERM');
+						}
 
-						// Remove all listeners to prevent hanging
-						child.removeAllListeners();
-
-						// Kill the process
-						child.kill('SIGTERM');
-					}
-
-					if (tmpFile) {
-						try {
-							fs.unlinkSync(tmpFile);
-							log('DEBUG: Cleaned up temp file:', tmpFile);
-						} catch (fileCleanupError) {
-							log('Warning: Failed to cleanup temp file:', {
-								tmpFile,
-								error: fileCleanupError.message
-							});
+						if (tmpFile) {
+							try {
+								fs.unlinkSync(tmpFile);
+								log('DEBUG: Fallback cleanup - removed temp file:', tmpFile);
+							} catch (fileCleanupError) {
+								log('Warning: Failed to cleanup temp file in fallback:', {
+									tmpFile,
+									error: fileCleanupError.message
+								});
+							}
 						}
 					}
 				};
@@ -698,7 +1065,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		const resultLineRegex = isResearchOperation
 			? /"type":"result"[\s\S]*?"result":/g
 			: // More permissive for research
-				/"type":"result"[^}]*}/g; // Original for regular ops
+			/"type":"result"[^}]*}/g; // Original for regular ops
 		let match;
 		while ((match = resultLineRegex.exec(cleanOutput)) !== null) {
 			// Find the start of the JSON object by looking backwards for opening brace
@@ -1163,5 +1530,30 @@ Provide thorough complexity analysis with actionable recommendations for task op
 		operationType = 'recursive-expand'
 	) {
 		return createRecursiveCursorAgentProgressTracker(maxDepth, operationType);
+	}
+
+	/**
+	 * Get current session statistics for monitoring and debugging
+	 * @returns {object} Session statistics including active sessions, operation types, etc.
+	 */
+	getSessionStats() {
+		return sessionManager.getSessionStats();
+	}
+
+	/**
+	 * Force cleanup of a specific session (for debugging/emergency use)
+	 * @param {string} sessionId - Session ID to cleanup
+	 * @param {boolean} force - Force cleanup even if session appears active
+	 * @returns {Promise<boolean>} True if cleanup successful
+	 */
+	async forceCleanupSession(sessionId, force = true) {
+		return await sessionManager.cleanupSession(sessionId, force);
+	}
+
+	/**
+	 * Perform emergency cleanup of all active sessions
+	 */
+	emergencyCleanupAll() {
+		sessionManager.emergencyCleanupAll();
 	}
 }
