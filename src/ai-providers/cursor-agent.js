@@ -1691,9 +1691,9 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 * Get session cache statistics for monitoring and debugging
 	 * @returns {object} Cache statistics including hit rate, active sessions, etc.
 	 */
-	getSessionCacheStats() {
+	getSessionCacheStats(projectRoot = process.cwd()) {
 		const { getCacheStats } = require('../utils/cursor-agent-session-cache.js');
-		return getCacheStats();
+		return getCacheStats(projectRoot);
 	}
 
 	/**
@@ -1712,9 +1712,9 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 * Clear all cached sessions
 	 * @returns {number} Number of sessions cleared
 	 */
-	clearAllCachedSessions() {
+	clearAllCachedSessions(projectRoot = process.cwd()) {
 		const { clearAllSessions } = require('../utils/cursor-agent-session-cache.js');
-		return clearAllSessions();
+		return clearAllSessions(projectRoot);
 	}
 
 	/**

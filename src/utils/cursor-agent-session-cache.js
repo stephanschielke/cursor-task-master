@@ -1,80 +1,76 @@
 /**
  * src/utils/cursor-agent-session-cache.js
  *
- * Persistent session storage for cursor-agent chat IDs
- * Stores chat IDs by context for long-term session reuse (weeks/months)
- * Sessions are only invalidated when cursor-agent fails to resume them
+ * STATELESS file-based session storage for cursor-agent chat IDs
+ * Each project maintains its own .taskmaster/cursor-agent-sessions.json file
+ * NO global state, NO timers, NO persistent processes
  */
 
 import { log } from '../../scripts/modules/utils.js';
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 
-// Simple global storage: contextKey -> { chatId, createdAt, lastUsedAt, resumeAttempts }
-const sessionStorage = new Map();
-
-// Configuration
+// Default configuration - can be overridden
 let config = {
     enabled: true,
-    maxSessions: 50, // Increased since we're not expiring by time
-    maxResumeAttempts: 3, // Max failed resume attempts before invalidation
-    persistToDisk: true // Persist sessions across restarts
+    maxSessions: 50,
+    maxResumeAttempts: 3
 };
 
-// File path for persistent storage
-const STORAGE_FILE = path.join(os.homedir(), '.cursor-agent-sessions.json');
-
 /**
- * Load sessions from persistent storage on startup
+ * Get the sessions file path for a project
+ * @param {string} projectRoot - Project directory
+ * @returns {string} Path to sessions file
  */
-function loadSessionsFromDisk() {
-    if (!config.persistToDisk) {
-        return;
+function getSessionsFilePath(projectRoot) {
+    const resolvedRoot = path.resolve(projectRoot || process.cwd());
+    const taskmasterDir = path.join(resolvedRoot, '.taskmaster');
+
+    // Ensure .taskmaster directory exists
+    if (!fs.existsSync(taskmasterDir)) {
+        fs.mkdirSync(taskmasterDir, { recursive: true });
     }
 
+    return path.join(taskmasterDir, 'cursor-agent-sessions.json');
+}
+
+/**
+ * Load sessions from project file
+ * @param {string} projectRoot - Project directory
+ * @returns {object} Sessions object
+ */
+function loadSessionsFromFile(projectRoot) {
+    const filePath = getSessionsFilePath(projectRoot);
+
     try {
-        if (fs.existsSync(STORAGE_FILE)) {
-            const data = fs.readFileSync(STORAGE_FILE, 'utf8');
-            const sessions = JSON.parse(data);
-
-            // Convert plain object back to Map
-            for (const [key, value] of Object.entries(sessions)) {
-                sessionStorage.set(key, value);
-            }
-
-            log('Loaded cursor-agent sessions from disk', {
-                sessionsLoaded: sessionStorage.size
-            });
+        if (fs.existsSync(filePath)) {
+            const data = fs.readFileSync(filePath, 'utf8');
+            return JSON.parse(data);
         }
     } catch (error) {
-        log('Failed to load sessions from disk (non-critical)', { error: error.message });
+        log('warn', `Failed to load sessions from ${filePath}: ${error.message}`);
     }
+
+    return {};
 }
 
 /**
- * Save sessions to persistent storage
+ * Save sessions to project file
+ * @param {string} projectRoot - Project directory
+ * @param {object} sessions - Sessions object to save
  */
-function saveSessionsToDisk() {
-    if (!config.persistToDisk) {
-        return;
-    }
+function saveSessionsToFile(projectRoot, sessions) {
+    const filePath = getSessionsFilePath(projectRoot);
 
     try {
-        // Convert Map to plain object for JSON serialization
-        const sessions = Object.fromEntries(sessionStorage);
-        fs.writeFileSync(STORAGE_FILE, JSON.stringify(sessions, null, 2), 'utf8');
-
-        log('Saved cursor-agent sessions to disk', {
-            sessionsSaved: sessionStorage.size
-        });
+        fs.writeFileSync(filePath, JSON.stringify(sessions, null, 2), 'utf8');
     } catch (error) {
-        log('Failed to save sessions to disk (non-critical)', { error: error.message });
+        log('warn', `Failed to save sessions to ${filePath}: ${error.message}`);
     }
 }
 
 /**
- * Generate a simple context key for session storage
+ * Generate a context key for session storage
  * @param {string} projectRoot - Project directory
  * @param {string} model - Model being used
  * @returns {string} Context key
@@ -84,8 +80,52 @@ function generateContextKey(projectRoot, model) {
     return `${resolvedPath}:${model || 'default'}`;
 }
 
-// Load existing sessions on module initialization
-loadSessionsFromDisk();
+/**
+ * Check if a session should be invalidated due to too many failures
+ * @param {object} session - Session object
+ * @returns {boolean} True if session should be invalidated
+ */
+function shouldInvalidateSession(session) {
+    if (!session) return true;
+
+    const resumeAttempts = session.resumeAttempts || 0;
+    return resumeAttempts >= config.maxResumeAttempts;
+}
+
+/**
+ * Clean up old sessions when limit is exceeded
+ * @param {object} sessions - Sessions object
+ * @returns {object} Cleaned sessions object
+ */
+function cleanupOldSessions(sessions) {
+    const sessionEntries = Object.entries(sessions);
+
+    if (sessionEntries.length <= config.maxSessions) {
+        return sessions; // No cleanup needed
+    }
+
+    // Sort by lastUsedAt (oldest first)
+    sessionEntries.sort((a, b) => {
+        const aTime = a[1].lastUsedAt || 0;
+        const bTime = b[1].lastUsedAt || 0;
+        return aTime - bTime;
+    });
+
+    // Remove oldest 10% when limit exceeded
+    const removeCount = Math.floor(config.maxSessions * 0.1);
+    const toKeep = sessionEntries.slice(removeCount);
+
+    const cleanedSessions = {};
+    toKeep.forEach(([key, value]) => {
+        cleanedSessions[key] = value;
+    });
+
+    if (removeCount > 0) {
+        log('info', `Cleaned up ${removeCount} old cursor-agent sessions`);
+    }
+
+    return cleanedSessions;
+}
 
 /**
  * Get stored chat ID for a context
@@ -98,40 +138,27 @@ export function getCachedChatId(projectRoot, model) {
         return null;
     }
 
+    const sessions = loadSessionsFromFile(projectRoot);
     const contextKey = generateContextKey(projectRoot, model);
-    const stored = sessionStorage.get(contextKey);
+    const session = sessions[contextKey];
 
-    if (!stored) {
-        return null;
-    }
-
-    // Check if session has exceeded max resume attempts
-    if (stored.resumeAttempts >= config.maxResumeAttempts) {
-        log('Session exceeded max resume attempts, removing', {
-            contextKey,
-            chatId: stored.chatId,
-            attempts: stored.resumeAttempts
-        });
-
-        sessionStorage.delete(contextKey);
-        saveSessionsToDisk();
+    if (!session || shouldInvalidateSession(session)) {
+        if (session) {
+            log('info', `Session invalidated due to failures: ${session.resumeAttempts || 0} attempts`);
+            delete sessions[contextKey];
+            saveSessionsToFile(projectRoot, sessions);
+        }
         return null;
     }
 
     // Update last used time
-    stored.lastUsedAt = Date.now();
-    saveSessionsToDisk();
+    session.lastUsedAt = Date.now();
+    saveSessionsToFile(projectRoot, sessions);
 
-    const ageInDays = Math.round((Date.now() - stored.createdAt) / (1000 * 60 * 60 * 24));
+    const ageInDays = Math.round((Date.now() - session.createdAt) / (1000 * 60 * 60 * 24));
 
-    log('Using stored chat ID', {
-        contextKey,
-        chatId: stored.chatId,
-        ageDays: ageInDays,
-        resumeAttempts: stored.resumeAttempts || 0
-    });
-
-    return stored.chatId;
+    log('info', `Using stored cursor-agent session: ${session.chatId} (age: ${ageInDays} days)`);
+    return session.chatId;
 }
 
 /**
@@ -139,18 +166,19 @@ export function getCachedChatId(projectRoot, model) {
  * @param {string} projectRoot - Project directory
  * @param {string} model - Model being used
  * @param {string} chatId - Chat ID to store
- * @param {boolean} [isNew=true] - Whether this is a new session or updating existing
+ * @param {boolean} [isNew=true] - Whether this is a new session
  */
 export function cacheChatId(projectRoot, model, chatId, isNew = true) {
     if (!config.enabled || !chatId) {
         return;
     }
 
+    const sessions = loadSessionsFromFile(projectRoot);
     const contextKey = generateContextKey(projectRoot, model);
     const now = Date.now();
 
     // Get existing session or create new one
-    const existing = sessionStorage.get(contextKey);
+    const existing = sessions[contextKey];
 
     const sessionData = {
         chatId,
@@ -159,34 +187,14 @@ export function cacheChatId(projectRoot, model, chatId, isNew = true) {
         resumeAttempts: 0 // Reset resume attempts on successful session
     };
 
-    sessionStorage.set(contextKey, sessionData);
+    sessions[contextKey] = sessionData;
 
-    // Clean up old sessions if we exceed max limit (be more conservative)
-    if (sessionStorage.size > config.maxSessions) {
-        const entries = Array.from(sessionStorage.entries());
-        entries.sort((a, b) => a[1].lastUsedAt - b[1].lastUsedAt);
+    // Clean up old sessions if needed
+    const cleanedSessions = cleanupOldSessions(sessions);
 
-        // Remove only the oldest 10% when limit is exceeded
-        const removeCount = Math.floor(config.maxSessions * 0.1);
-        const toRemove = entries.slice(0, removeCount);
+    saveSessionsToFile(projectRoot, cleanedSessions);
 
-        toRemove.forEach(([key]) => sessionStorage.delete(key));
-
-        log('Cleaned up old sessions', {
-            removed: removeCount,
-            remaining: sessionStorage.size
-        });
-    }
-
-    // Save to disk
-    saveSessionsToDisk();
-
-    log('Stored chat ID', {
-        contextKey,
-        chatId,
-        isNew,
-        totalStored: sessionStorage.size
-    });
+    log('info', `Stored cursor-agent session: ${chatId} (total: ${Object.keys(cleanedSessions).length})`);
 }
 
 /**
@@ -201,39 +209,28 @@ export function markResumeFailure(projectRoot, model, failedChatId) {
         return false;
     }
 
+    const sessions = loadSessionsFromFile(projectRoot);
     const contextKey = generateContextKey(projectRoot, model);
-    const stored = sessionStorage.get(contextKey);
+    const session = sessions[contextKey];
 
-    if (!stored || stored.chatId !== failedChatId) {
-        // Session not found or chat ID doesn't match - might have been updated already
-        return false;
+    if (!session || session.chatId !== failedChatId) {
+        return false; // Session not found or chat ID doesn't match
     }
 
-    stored.resumeAttempts = (stored.resumeAttempts || 0) + 1;
-    stored.lastUsedAt = Date.now();
+    session.resumeAttempts = (session.resumeAttempts || 0) + 1;
+    session.lastUsedAt = Date.now();
 
-    sessionStorage.set(contextKey, stored);
-    saveSessionsToDisk();
+    log('warn', `Cursor-agent resume failure: ${failedChatId} (attempt ${session.resumeAttempts}/${config.maxResumeAttempts})`);
 
-    log('Marked resume failure', {
-        contextKey,
-        chatId: failedChatId,
-        attempts: stored.resumeAttempts,
-        maxAttempts: config.maxResumeAttempts
-    });
-
-    // Check if we should remove the session now
-    if (stored.resumeAttempts >= config.maxResumeAttempts) {
-        sessionStorage.delete(contextKey);
-        saveSessionsToDisk();
-
-        log('Session removed after max resume failures', {
-            contextKey,
-            chatId: failedChatId,
-            totalAttempts: stored.resumeAttempts
-        });
+    // Remove session if it exceeded max attempts
+    if (session.resumeAttempts >= config.maxResumeAttempts) {
+        delete sessions[contextKey];
+        log('info', `Removed cursor-agent session after max failures: ${failedChatId}`);
+    } else {
+        sessions[contextKey] = session;
     }
 
+    saveSessionsToFile(projectRoot, sessions);
     return true;
 }
 
@@ -243,40 +240,49 @@ export function markResumeFailure(projectRoot, model, failedChatId) {
  * @param {string} model - Model being used
  */
 export function clearCachedSession(projectRoot, model) {
+    const sessions = loadSessionsFromFile(projectRoot);
     const contextKey = generateContextKey(projectRoot, model);
-    const deleted = sessionStorage.delete(contextKey);
 
-    if (deleted) {
-        saveSessionsToDisk();
-        log('Cleared stored session', { contextKey });
+    if (sessions[contextKey]) {
+        delete sessions[contextKey];
+        saveSessionsToFile(projectRoot, sessions);
+        log('info', `Cleared cursor-agent session for context: ${contextKey}`);
     }
 }
 
 /**
- * Clear all stored sessions
+ * Clear all stored sessions for a project
+ * @param {string} projectRoot - Project directory
  */
-export function clearAllSessions() {
-    const count = sessionStorage.size;
-    sessionStorage.clear();
+export function clearAllSessions(projectRoot) {
+    const filePath = getSessionsFilePath(projectRoot);
 
-    // Clear persistent storage
-    saveSessionsToDisk();
-
-    log('Cleared all stored sessions', { count });
-    return count;
+    try {
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            log('info', 'Cleared all cursor-agent sessions');
+        }
+    } catch (error) {
+        log('warn', `Failed to clear sessions file: ${error.message}`);
+    }
 }
 
 /**
- * Get storage statistics
+ * Get storage statistics for a project
+ * @param {string} projectRoot - Project directory
+ * @returns {object} Statistics object
  */
-export function getCacheStats() {
+export function getCacheStats(projectRoot) {
+    const sessions = loadSessionsFromFile(projectRoot);
+    const sessionEntries = Object.entries(sessions);
     const now = Date.now();
+
     let activeSessions = 0;
     let failedSessions = 0;
     let oldestSession = null;
     let newestSession = null;
 
-    for (const [key, session] of sessionStorage.entries()) {
+    sessionEntries.forEach(([key, session]) => {
         const resumeAttempts = session.resumeAttempts || 0;
 
         if (resumeAttempts < config.maxResumeAttempts) {
@@ -285,26 +291,23 @@ export function getCacheStats() {
             failedSessions++;
         }
 
-        // Track age ranges
         if (!oldestSession || session.createdAt < oldestSession) {
             oldestSession = session.createdAt;
         }
         if (!newestSession || session.createdAt > newestSession) {
             newestSession = session.createdAt;
         }
-    }
+    });
 
     const stats = {
-        totalSessions: sessionStorage.size,
+        totalSessions: sessionEntries.length,
         activeSessions,
         failedSessions,
         enabled: config.enabled,
         maxSessions: config.maxSessions,
-        maxResumeAttempts: config.maxResumeAttempts,
-        persistToDisk: config.persistToDisk
+        maxResumeAttempts: config.maxResumeAttempts
     };
 
-    // Add age information if we have sessions
     if (oldestSession) {
         stats.oldestSessionDays = Math.round((now - oldestSession) / (1000 * 60 * 60 * 24));
         stats.newestSessionDays = Math.round((now - newestSession) / (1000 * 60 * 60 * 24));
@@ -319,39 +322,32 @@ export function getCacheStats() {
  */
 export function configureCaching(options = {}) {
     config = { ...config, ...options };
-
-    // If disk persistence settings changed, handle it
-    if ('persistToDisk' in options) {
-        if (options.persistToDisk) {
-            saveSessionsToDisk();
-        }
-    }
-
-    log('Session storage configured', config);
+    log('info', 'Cursor-agent session storage configured', config);
 }
 
 /**
  * Clean up failed sessions that have exceeded max resume attempts
+ * This is called lazily when accessing sessions, not on a timer
+ * @param {string} projectRoot - Project directory
+ * @returns {number} Number of sessions cleaned up
  */
-export function cleanupFailedSessions() {
+export function cleanupFailedSessions(projectRoot) {
+    const sessions = loadSessionsFromFile(projectRoot);
+    const sessionEntries = Object.entries(sessions);
     let cleaned = 0;
 
-    for (const [key, session] of sessionStorage.entries()) {
+    sessionEntries.forEach(([key, session]) => {
         const resumeAttempts = session.resumeAttempts || 0;
-
         if (resumeAttempts >= config.maxResumeAttempts) {
-            sessionStorage.delete(key);
+            delete sessions[key];
             cleaned++;
         }
-    }
+    });
 
     if (cleaned > 0) {
-        saveSessionsToDisk();
-        log('Cleaned up failed sessions', { cleaned, remaining: sessionStorage.size });
+        saveSessionsToFile(projectRoot, sessions);
+        log('info', `Cleaned up ${cleaned} failed cursor-agent sessions`);
     }
 
     return cleaned;
 }
-
-// Clean up failed sessions less frequently - once per hour
-setInterval(cleanupFailedSessions, 60 * 60 * 1000);
