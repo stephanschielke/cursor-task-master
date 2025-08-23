@@ -318,8 +318,8 @@ export class CursorAgentProvider extends BaseAIProvider {
 			}
 
 			// Extract and cache chat ID from response if available
-			if (result.chat_id || result.chatId) {
-				const newChatId = result.chat_id || result.chatId;
+			if (result.chat_id || result.chatId || result.sessionId) {
+				const newChatId = result.chat_id || result.chatId || result.sessionId;
 				const isNewSession = !cachedChatId || retriedWithoutResume;
 
 				cacheChatId(projectRoot, model, newChatId, isNewSession);
@@ -858,6 +858,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 			'cursor-agent',
 			mappedModel, // Use subcommand like 'sonnet', 'gpt-5', etc.
 			'--print' // Print responses to console for scripts
+			// --force removed: proper permissions configured in .cursor/cli.json
 		];
 
 		// Do NOT use --output-format=json as it causes hanging!

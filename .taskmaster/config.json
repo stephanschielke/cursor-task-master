@@ -9,7 +9,7 @@
 		"research": {
 			"provider": "cursor-agent",
 			"modelId": "sonnet-4",
-			"maxTokens": 64000,
+			"maxTokens": 164000,
 			"temperature": 0.2
 		},
 		"fallback": {
