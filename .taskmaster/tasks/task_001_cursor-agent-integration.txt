@@ -1,6 +1,6 @@
 # Task ID: 1
 # Title: Finalize CursorAgentProvider Implementation
-# Status: pending
+# Status: in-progress
 # Dependencies: None
 # Priority: low
 # Description: Complete the existing CursorAgentProvider class with minor robustness improvements and basic testing coverage.
@@ -62,4 +62,36 @@ Add configuration validation to ensure cursor-agent settings are properly config
 <info added on 2025-08-21T21:10:49.152Z>
 I'll analyze this comprehensive implementation update and generate the appropriate text to append to the subtask details.Let me analyze the user request to understand what implementation was completed:Now I'll verify the integration with the config-manager system:Based on my analysis of the user request and the implemented files, I can generate the appropriate append text for the subtask details. The user provided a comprehensive implementation update showing that the configuration validation module has been completed with extensive functionality and testing coverage.**IMPLEMENTATION COMPLETED SUCCESSFULLY:** Full CursorAgentValidator class implemented with comprehensive cursor-agent CLI integration. Created complete validation system with CursorAgentValidator class featuring cursor-agent availability detection, model validation against MODEL_MAP, health check system with issue categorization, caching for performance optimization, and error handling with user-friendly messages. Implemented all required functionality including model mapping validation (sonnet-4 → sonnet), cursor-agent version checking, model availability testing, configuration health monitoring, warning system for unsupported models, fallback suggestions, and integration with config-manager.js. Delivered 27 comprehensive unit tests covering availability checking, model validation, health checks, error scenarios, caching behavior, and utility functions. Added standalone utility functions (validateCursorAgentModel, checkCursorAgentHealth, getCursorAgentModels) for external integration. System provides intelligent model suggestions, comprehensive error categorization (not found, timeout, permission, ENOENT), and production-ready configuration validation capabilities. Core functionality operational with robust testing framework established.
 </info added on 2025-08-21T21:10:49.152Z>
+
+## 7. Implement Cursor-Agent Session Warming and Chat ID Caching [pending]
+### Dependencies: 1.1
+### Description: Add in-memory session caching to the MCP server to enable cursor-agent session reuse across multiple calls in the same context/directory, reducing context overhead and improving response times.
+### Details:
+Implement a comprehensive session warming system:
+
+1. **MCP Server Session Cache**: Create an in-memory cache that stores active cursor-agent chat IDs mapped by context (directory path, model, etc.)
+
+2. **Session Reuse Logic**: Modify CursorAgentProvider to check the cache before creating new sessions, with configurable feature flag to enable/disable reuse
+
+3. **Session Lifecycle Management**: 
+   - Track session creation timestamps and activity
+   - Implement TTL (time-to-live) policies for session expiration
+   - Handle session cleanup when contexts change or sessions become stale
+
+4. **Configuration Options**:
+   - Feature flag: `CURSOR_AGENT_SESSION_REUSE` (default: enabled)
+   - Session TTL: `CURSOR_AGENT_SESSION_TTL` (default: 30 minutes)
+   - Max sessions per context: `CURSOR_AGENT_MAX_SESSIONS` (default: 3)
+
+5. **Integration Points**:
+   - Update `_executeCursorAgentCore()` to check cache before creating sessionId
+   - Modify response parsing to update session cache with latest activity
+   - Add session management endpoints to MCP server for debugging
+
+6. **Performance Optimization**:
+   - Reduce context re-establishment overhead
+   - Maintain conversation history across related operations
+   - Smart session invalidation on significant context changes (file modifications, directory changes)
+
+This enhancement will significantly improve cursor-agent performance for iterative operations like task expansion, updates, and analysis within the same project context.
 

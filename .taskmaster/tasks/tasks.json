@@ -7083,7 +7083,7 @@
         "id": 1,
         "title": "Finalize CursorAgentProvider Implementation",
         "description": "Complete the existing CursorAgentProvider class with minor robustness improvements and basic testing coverage.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [],
         "priority": "low",
         "details": "Enhance the existing CursorAgentProvider class with: 1) Review and optimize tmux session cleanup to prevent leaks, 2) Add basic error logging for failed cursor-agent executions, 3) Verify timeout handling works correctly with current implementation, 4) Ensure JSON parsing handles common malformed response patterns, 5) Add simple configuration validation for model selection. The core functionality is already implemented including tmux isolation, generateText/generateObject methods, and fallback mechanisms.",
@@ -7141,6 +7141,17 @@
             "details": "Add configuration validation to ensure cursor-agent settings are properly configured. Tasks include: 1) Validate model mapping between TaskMaster model IDs and cursor-agent CLI model names (sonnet-4 → sonnet), 2) Add cursor-agent availability checking using 'cursor-agent --version' command, 3) Implement model availability validation for specified models, 4) Add configuration health checks that can be used in monitoring, 5) Create warning system for deprecated or unavailable models, 6) Add fallback model suggestion when primary model is unavailable, 7) Integrate configuration validation with existing config-manager system.\n<info added on 2025-08-21T21:10:49.152Z>\nI'll analyze this comprehensive implementation update and generate the appropriate text to append to the subtask details.Let me analyze the user request to understand what implementation was completed:Now I'll verify the integration with the config-manager system:Based on my analysis of the user request and the implemented files, I can generate the appropriate append text for the subtask details. The user provided a comprehensive implementation update showing that the configuration validation module has been completed with extensive functionality and testing coverage.**IMPLEMENTATION COMPLETED SUCCESSFULLY:** Full CursorAgentValidator class implemented with comprehensive cursor-agent CLI integration. Created complete validation system with CursorAgentValidator class featuring cursor-agent availability detection, model validation against MODEL_MAP, health check system with issue categorization, caching for performance optimization, and error handling with user-friendly messages. Implemented all required functionality including model mapping validation (sonnet-4 → sonnet), cursor-agent version checking, model availability testing, configuration health monitoring, warning system for unsupported models, fallback suggestions, and integration with config-manager.js. Delivered 27 comprehensive unit tests covering availability checking, model validation, health checks, error scenarios, caching behavior, and utility functions. Added standalone utility functions (validateCursorAgentModel, checkCursorAgentHealth, getCursorAgentModels) for external integration. System provides intelligent model suggestions, comprehensive error categorization (not found, timeout, permission, ENOENT), and production-ready configuration validation capabilities. Core functionality operational with robust testing framework established.\n</info added on 2025-08-21T21:10:49.152Z>",
             "status": "done",
             "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 7,
+            "title": "Implement Cursor-Agent Session Warming and Chat ID Caching",
+            "description": "Add in-memory session caching to the MCP server to enable cursor-agent session reuse across multiple calls in the same context/directory, reducing context overhead and improving response times.",
+            "details": "Implement a comprehensive session warming system:\n\n1. **MCP Server Session Cache**: Create an in-memory cache that stores active cursor-agent chat IDs mapped by context (directory path, model, etc.)\n\n2. **Session Reuse Logic**: Modify CursorAgentProvider to check the cache before creating new sessions, with configurable feature flag to enable/disable reuse\n\n3. **Session Lifecycle Management**: \n   - Track session creation timestamps and activity\n   - Implement TTL (time-to-live) policies for session expiration\n   - Handle session cleanup when contexts change or sessions become stale\n\n4. **Configuration Options**:\n   - Feature flag: `CURSOR_AGENT_SESSION_REUSE` (default: enabled)\n   - Session TTL: `CURSOR_AGENT_SESSION_TTL` (default: 30 minutes)\n   - Max sessions per context: `CURSOR_AGENT_MAX_SESSIONS` (default: 3)\n\n5. **Integration Points**:\n   - Update `_executeCursorAgentCore()` to check cache before creating sessionId\n   - Modify response parsing to update session cache with latest activity\n   - Add session management endpoints to MCP server for debugging\n\n6. **Performance Optimization**:\n   - Reduce context re-establishment overhead\n   - Maintain conversation history across related operations\n   - Smart session invalidation on significant context changes (file modifications, directory changes)\n\nThis enhancement will significantly improve cursor-agent performance for iterative operations like task expansion, updates, and analysis within the same project context.",
+            "status": "pending",
+            "dependencies": [
+              "1.1"
+            ],
             "parentTaskId": 1
           }
         ]
@@ -7482,7 +7493,7 @@
     ],
     "metadata": {
       "created": "2025-08-21T17:41:12.804Z",
-      "updated": "2025-08-21T22:06:26.026Z",
+      "updated": "2025-08-23T12:14:05.230Z",
       "description": "Tasks for cursor-agent-integration context"
     }
   }
