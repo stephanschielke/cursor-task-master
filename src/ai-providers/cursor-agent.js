@@ -318,8 +318,8 @@ export class CursorAgentProvider extends BaseAIProvider {
 			}
 
 			// Extract and cache chat ID from response if available
-			if (result.chat_id || result.chatId || result.sessionId) {
-				const newChatId = result.chat_id || result.chatId || result.sessionId;
+			if (result.chat_id || result.chatId || result.sessionId || result.session_id) {
+				const newChatId = result.chat_id || result.chatId || result.sessionId || result.session_id;
 				const isNewSession = !cachedChatId || retriedWithoutResume;
 
 				cacheChatId(projectRoot, model, newChatId, isNewSession);

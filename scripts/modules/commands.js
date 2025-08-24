@@ -331,10 +331,10 @@ async function runInteractiveSetup(projectRoot) {
 					.filter((m) => m.allowed_roles.includes(role))
 					.map((m) => ({
 						name: `${provider} / ${m.id} ${m.cost_per_1m_tokens
-								? chalk.gray(
-									`($${m.cost_per_1m_tokens.input.toFixed(2)} input | $${m.cost_per_1m_tokens.output.toFixed(2)} output)`
-								)
-								: ''
+							? chalk.gray(
+								`($${m.cost_per_1m_tokens.input.toFixed(2)} input | $${m.cost_per_1m_tokens.output.toFixed(2)} output)`
+							)
+							: ''
 							}`,
 						value: { id: m.id, provider },
 						short: `${provider}/${m.id}`
