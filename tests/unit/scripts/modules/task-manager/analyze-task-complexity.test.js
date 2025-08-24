@@ -124,7 +124,7 @@ jest.unstable_mockModule(
 			global: { projectName: 'Test Project' }
 		})),
 		writeConfig: jest.fn(() => true),
-		ConfigurationError: class extends Error {},
+		ConfigurationError: class extends Error { },
 		isConfigFilePresent: jest.fn(() => true),
 
 		// Validation
@@ -193,15 +193,18 @@ jest.unstable_mockModule(
 
 // Mock fs module
 const mockWriteFileSync = jest.fn();
+const mockUnlinkSync = jest.fn();
 jest.unstable_mockModule('fs', () => ({
 	default: {
 		existsSync: jest.fn(() => false),
 		readFileSync: jest.fn(),
-		writeFileSync: mockWriteFileSync
+		writeFileSync: mockWriteFileSync,
+		unlinkSync: mockUnlinkSync
 	},
 	existsSync: jest.fn(() => false),
 	readFileSync: jest.fn(),
-	writeFileSync: mockWriteFileSync
+	writeFileSync: mockWriteFileSync,
+	unlinkSync: mockUnlinkSync
 }));
 
 jest.unstable_mockModule(

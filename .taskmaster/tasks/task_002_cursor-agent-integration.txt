@@ -1,0 +1,11 @@
+# Task ID: 2
+# Title: Enhance MCP Server with FastMCP Integration
+# Status: done
+# Dependencies: 1
+# Priority: high
+# Description: Integrate FastMCP framework with TaskMaster MCP tools and implement direct function wrappers for cursor-agent provider operations.
+# Details:
+Integrate FastMCP framework into existing MCP server: 1) Update MCP server architecture to support FastMCP protocol, 2) Create direct function wrappers for all TaskMaster MCP tools (expand_task, parse_prd, add_task, update_task, analyze_complexity), 3) Implement cursor-agent provider integration within MCP tools, 4) Add recursive tool calling capabilities enabling AI-driven state modifications, 5) Implement progress tracking and telemetry collection for complex workflows, 6) Create execution context management for CursorAgent sessions with sessionId tracking, 7) Add structured error handling and recovery mechanisms, 8) Ensure backward compatibility with existing MCP tool implementations. Include provider selection logic with cursor-agent as default main model.
+
+# Test Strategy:
+Test FastMCP integration with existing MCP tools. Verify direct function wrappers maintain API compatibility. Test recursive tool calling scenarios with mock operations. Validate progress tracking and telemetry collection. Integration tests with cursor-agent provider.

@@ -1018,5 +1018,40 @@
 			"max_tokens": 65536,
 			"supported": true
 		}
+	],
+	"cursor-agent": [
+		{
+			"id": "sonnet-4",
+			"swe_score": 0.727,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 64000,
+			"supported": true
+		},
+		{
+			"id": "gpt-5",
+			"swe_score": 0.749,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 32000,
+			"supported": true
+		},
+		{
+			"id": "opus",
+			"swe_score": 0.725,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 32000,
+			"supported": true
+		}
 	]
 }

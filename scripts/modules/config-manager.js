@@ -647,15 +647,19 @@ function isApiKeySet(providerName, session = null, projectRoot = null) {
 		CUSTOM_PROVIDERS.OLLAMA,
 		CUSTOM_PROVIDERS.BEDROCK,
 		CUSTOM_PROVIDERS.MCP,
-		CUSTOM_PROVIDERS.GEMINI_CLI
+		CUSTOM_PROVIDERS.GEMINI_CLI,
+		CUSTOM_PROVIDERS.CURSOR_AGENT
 	];
 
 	if (providersWithoutApiKeys.includes(providerName?.toLowerCase())) {
 		return true; // Indicate key status is effectively "OK"
 	}
 
-	// Claude Code doesn't require an API key
-	if (providerName?.toLowerCase() === 'claude-code') {
+	// Claude Code and Cursor Agent don't require API keys
+	if (
+		providerName?.toLowerCase() === 'claude-code' ||
+		providerName?.toLowerCase() === 'cursor-agent'
+	) {
 		return true; // No API key needed
 	}
 
@@ -953,7 +957,8 @@ export const providersWithoutApiKeys = [
 	CUSTOM_PROVIDERS.OLLAMA,
 	CUSTOM_PROVIDERS.BEDROCK,
 	CUSTOM_PROVIDERS.GEMINI_CLI,
-	CUSTOM_PROVIDERS.MCP
+	CUSTOM_PROVIDERS.MCP,
+	CUSTOM_PROVIDERS.CURSOR_AGENT
 ];
 
 export {

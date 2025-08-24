@@ -1,0 +1,45 @@
+# Task ID: 4
+# Title: Create date formatting utility function
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Implement a reusable utility function that converts JavaScript Date objects into user-friendly, readable string formats with multiple formatting options.
+# Details:
+Create a comprehensive date formatting utility in `src/utils/dateFormatter.js` that provides multiple formatting options:
+
+**Core Implementation:**
+- Primary function `formatDate(date, format)` accepting Date object and format string
+- Support common formats: 'short' (MM/DD/YYYY), 'long' (January 1, 2024), 'relative' (2 days ago), 'iso' (2024-01-01)
+- Handle edge cases: invalid dates, null/undefined inputs, timezone considerations
+- Include helper functions for specific use cases: `formatRelativeTime()`, `formatShortDate()`, `formatLongDate()`
+
+**Technical Considerations:**
+- Use native JavaScript Date methods to avoid external dependencies
+- Implement proper error handling with meaningful error messages
+- Consider locale support for internationalization
+- Add JSDoc comments for all functions
+- Export both individual functions and a default formatter object
+
+**Code Structure:**
+```javascript
+export const formatDate = (date, format = 'short') => {
+  // Input validation
+  // Format selection logic
+  // Return formatted string
+};
+
+export const formatRelativeTime = (date) => {
+  // Calculate time difference
+  // Return relative description
+};
+```
+
+# Test Strategy:
+Create comprehensive unit tests in `src/utils/dateFormatter.test.js` covering:
+1. **Format Validation:** Test all supported format types (short, long, relative, iso) with known input dates
+2. **Edge Case Handling:** Test invalid dates, null/undefined inputs, future dates, very old dates
+3. **Relative Time Accuracy:** Verify relative formatting for seconds, minutes, hours, days, months, and years
+4. **Timezone Consistency:** Test formatting behavior across different timezones
+5. **Performance Testing:** Ensure function performs well with multiple rapid calls
+6. **Integration Testing:** Import and use in a sample component to verify real-world usage
+7. **Manual Verification:** Create test script that outputs formatted dates for visual confirmation

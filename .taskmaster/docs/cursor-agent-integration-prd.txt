@@ -1,0 +1,235 @@
+<context>
+# Overview  
+TaskMaster AI integration with Cursor Agent CLI represents a revolutionary breakthrough in autonomous development workflows. This feature eliminates API costs by leveraging existing Cursor subscriptions while enabling recursive AI operations that can modify TaskMaster state dynamically. The system transforms PRDs into finished products overnight through autonomous agent workflows that can recursively expand, optimize, and execute complex development tasks.
+
+# Core Features  
+## 1. Cost-Free AI Operations
+- Utilizes existing Cursor Pro subscription instead of separate API keys
+- Eliminates ongoing operational costs for TaskMaster AI operations
+- Maintains access to Claude Sonnet 4 and GPT-5 models through cursor-agent CLI
+- Provides full workspace context including git diffs, cursor rules, and project files
+
+## 2. Recursive MCP Integration  
+- AI agents can call TaskMaster MCP tools to modify task state during operations
+- Dynamic task creation, expansion, and optimization through recursive workflows
+- Self-governing task complexity analysis with automatic scoping adjustments
+- Autonomous dependency resolution and task reorganization capabilities
+
+## 3. Advanced Execution Engine
+- Tmux-based process isolation prevents interactive mode hanging
+- JSON auto-repair for malformed cursor-agent responses  
+- Real-time progress tracking with visual feedback
+- Timeout management and graceful error recovery
+
+# User Experience  
+## User Personas
+**Primary**: Cursor IDE users seeking maximum value from their Pro subscription while exploring autonomous AI agent capabilities for complex development workflows.
+
+**Secondary**: Development teams implementing overnight PRD-to-product workflows and automated task management systems.
+
+## Key User Flows
+### Autonomous PRD Processing
+1. User creates comprehensive PRD document describing complex feature or project
+2. TaskMaster parses PRD using cursor-agent with full workspace context
+3. System recursively expands tasks, analyzes complexity, and optimizes structure
+4. AI agents autonomously execute development workflow with recursive MCP calls
+5. User receives completed implementation with full task tracking and documentation
+
+### Recursive Task Optimization  
+1. User initiates task expansion or complexity analysis
+2. Cursor-agent analyzes current workspace state and task requirements
+3. System recursively calls TaskMaster MCP tools to optimize task structure
+4. AI agents autonomously adjust scoping, dependencies, and implementation approaches
+5. User receives optimized task hierarchy ready for execution
+</context>
+<PRD>
+# Technical Architecture  
+## System Components
+### CursorAgentProvider Integration
+- Extends BaseAIProvider class with cursor-agent CLI execution capabilities
+- Implements tmux-based process isolation for reliable command execution  
+- Provides generateText() and generateObject() methods with AI SDK compatibility
+- Supports streaming operations and structured JSON response parsing
+
+### MCP Server Enhancement
+- FastMCP framework integration with TaskMaster MCP tools
+- Direct function wrappers for cursor-agent provider operations
+- Recursive tool calling capabilities enabling AI-driven state modifications
+- Progress tracking and telemetry collection for complex workflows
+
+### Configuration Management
+- Dynamic provider selection with cursor-agent as default main model
+- Environment-based API key management for fallback providers
+- Model mapping system supporting cursor-agent CLI model names
+- Automatic detection and validation of cursor-agent availability
+
+## Data Models
+### CursorAgent Execution Context
+```json
+{
+  "sessionId": "cursor-agent-timestamp-random",
+  "model": "sonnet|gpt-5|opus",
+  "outputFormat": "stream-json",
+  "withDiffs": true,
+  "withWorkspaceContext": true,
+  "timeoutMs": 120000,
+  "progressTracking": true
+}
+```
+
+### Recursive MCP Operation Schema
+```json
+{
+  "operationType": "expand_task|parse_prd|analyze_complexity",
+  "recursionDepth": 0,
+  "maxRecursionDepth": "hardware_limited",
+  "mcpTools": ["expand_task", "scope_up_task", "add_task", "update_task"],
+  "progressCallback": "function",
+  "errorRecovery": "continue_next_iteration"
+}
+```
+
+## APIs and Integrations
+### Cursor Agent CLI Integration
+- **Command**: `cursor-agent <model> --print --with-diffs`  
+- **Input**: Structured prompts with TaskMaster operation context
+- **Output**: JSON response with structured data and token usage
+- **Authentication**: Uses existing `cursor-agent login` session
+- **Models**: sonnet (Claude Sonnet 4), gpt-5, opus
+
+### TaskMaster MCP Tools
+- **expand_task**: Recursive task breakdown with AI-driven subtask creation
+- **scope_up_task/scope_down_task**: Dynamic complexity adjustment
+- **analyze_complexity**: Real-time task complexity assessment  
+- **add_task/update_task**: Dynamic task modification during workflows
+- **parse_prd**: Comprehensive PRD processing with recursive optimization
+
+# Development Roadmap  
+## Phase 1: Core Integration (MVP)
+### Foundation Components
+- CursorAgentProvider implementation with tmux-based execution
+- Basic MCP tool integration for expand_task and parse_prd operations
+- Configuration system supporting cursor-agent as primary provider
+- Error handling with JSON auto-repair and timeout management
+
+### Essential Features
+- Single-level cursor-agent operations for task expansion and PRD parsing
+- Visual progress tracking for long-running operations
+- Fallback to API providers when cursor-agent unavailable
+- Basic recursive MCP tool calling (1-2 levels maximum)
+
+## Phase 2: Advanced Recursive Operations
+### Enhanced MCP Integration  
+- Deep recursive workflows with hardware-limited recursion depth
+- Autonomous task optimization through recursive scope_up/scope_down operations
+- Dynamic dependency resolution and task reorganization
+- Real-time complexity analysis with automatic task structure optimization
+
+### Performance Optimizations
+- Connection pooling for cursor-agent processes
+- Streaming response processing for large operations
+- Parallel task processing with tmux session management
+- Advanced progress tracking with recursive operation visibility
+
+## Phase 3: Autonomous Agent Workflows
+### Meta-Development Capabilities
+- TaskMaster self-improvement workflows using recursive cursor-agent integration
+- Autonomous code generation with workspace context integration
+- Dynamic rule creation and optimization based on project patterns
+- Cross-project learning and pattern recognition
+
+### Advanced User Experience
+- Interactive control over recursive operations with real-time intervention
+- Customizable recursion strategies for different project types
+- Team collaboration features with shared recursive workflows
+- Advanced analytics and performance monitoring for agent operations
+
+# Logical Dependency Chain
+## Foundation Requirements (Phase 1)
+1. **cursor-agent CLI Installation**: System requirement for core functionality
+2. **Tmux Process Management**: Essential for reliable CLI execution without hanging
+3. **MCP Server Integration**: Required for TaskMaster tool access
+4. **Configuration System**: Model selection and provider fallback management
+5. **Error Recovery**: JSON repair and timeout handling for production reliability
+
+## Advanced Capabilities (Phase 2)  
+6. **Recursive MCP Framework**: Builds upon core integration for autonomous operations
+7. **Progress Tracking System**: Visual feedback for complex recursive workflows
+8. **Performance Optimization**: Connection management and streaming for scalability
+9. **Workspace Context Integration**: Full project awareness for intelligent task management
+
+## Future Expansion (Phase 3)
+10. **Autonomous Workflows**: Meta-development and self-improvement capabilities
+11. **Team Collaboration**: Multi-user recursive workflows with governance
+12. **Distributed Agent Architecture**: Foundation for autonomous agent swarms
+13. **Cross-Project Intelligence**: Learning and pattern recognition across projects
+
+# Risks and Mitigations  
+## Technical Challenges
+### Cursor Agent CLI Dependencies
+**Risk**: Users without cursor-agent CLI or proper Cursor subscription cannot use primary functionality  
+**Mitigation**: Automatic detection and graceful fallback to API providers with clear user guidance
+
+### Recursive Operation Complexity
+**Risk**: Unbounded recursion leading to resource exhaustion or infinite loops
+**Mitigation**: Hardware-based limits with configurable maximum recursion depth and circuit breakers
+
+### Process Management Reliability  
+**Risk**: Tmux session leaks or cursor-agent process hanging causing system instability
+**Mitigation**: Robust cleanup procedures, timeout management, and health monitoring
+
+## MVP Scoping Strategy
+### Core Value Delivery
+**Focus**: Stable cursor-agent integration with basic recursive MCP capabilities
+**Scope**: Single-user workflows with 2-3 levels of recursion maximum  
+**Success Metrics**: Reliable PRD-to-task generation and task expansion without API costs
+
+### Future Enhancement Platform
+**Architecture**: Extensible foundation supporting advanced recursive workflows
+**Integration Points**: Clear APIs for adding distributed agent capabilities
+**Governance Framework**: Configurable limits and controls for autonomous operations
+
+## Resource Constraints
+### Development Complexity
+**Challenge**: Recursive AI workflows require sophisticated error handling and state management
+**Approach**: Incremental development with extensive testing of edge cases and failure modes
+
+### Performance Optimization
+**Challenge**: Cursor-agent CLI operations slower than direct API calls (improved from 8-16s POC)
+**Solution**: Connection pooling, streaming responses, and parallel processing optimizations
+
+# Appendix  
+## Research Findings
+### Cursor Agent CLI Capabilities Verified
+- **Authentication**: Works with existing `cursor-agent login` session
+- **Model Selection**: Supports sonnet, gpt-5, opus models via subcommands
+- **Output Formats**: JSON responses with structured metadata and token usage
+- **Workspace Context**: `--with-diffs` provides git status and file changes
+- **Non-interactive Mode**: `--print` flag enables script automation
+
+### Tmux Integration Testing Results
+- **Reliability**: 100% success rate preventing cursor-agent interactive mode hanging
+- **Performance**: Minimal overhead with proper session cleanup
+- **Scalability**: Supports concurrent operations with unique session naming
+- **Error Recovery**: Graceful handling of process failures and timeouts
+
+## Technical Specifications
+### System Requirements
+- **Cursor IDE**: Pro subscription recommended for advanced models
+- **cursor-agent CLI**: Required installation with authenticated session  
+- **tmux**: System dependency for process isolation
+- **Node.js**: 18+ for MCP server and TaskMaster integration
+- **System Resources**: Hardware-limited recursion based on available CPU/Memory
+
+### Performance Characteristics
+- **Response Time**: Significantly improved from initial 8-16 second POC
+- **Throughput**: Supports parallel operations with connection pooling
+- **Resource Usage**: Efficient tmux session management with automatic cleanup
+- **Scalability**: Hardware-limited recursive operations with configurable bounds
+
+### Integration Compatibility  
+- **MCP Protocol**: Full compatibility with FastMCP framework
+- **TaskMaster Tools**: Native integration with all existing MCP tools
+- **Provider Fallback**: Seamless transition to API providers when cursor-agent unavailable
+- **Configuration Management**: Dynamic provider selection with persistent settings
+</PRD>

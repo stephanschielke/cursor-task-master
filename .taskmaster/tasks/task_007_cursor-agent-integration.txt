@@ -1,0 +1,11 @@
+# Task ID: 7
+# Title: Implement Advanced PRD Processing with Recursive Optimization
+# Status: pending
+# Dependencies: 4, 5, 6
+# Priority: high
+# Description: Create comprehensive PRD processing system that recursively expands, analyzes complexity, and optimizes task structures using cursor-agent integration.
+# Details:
+Build advanced PRD processing engine: 1) Enhance parse_prd MCP tool to use cursor-agent with full workspace context (--with-diffs), 2) Implement recursive task expansion that automatically calls expand_task on complex tasks, 3) Add autonomous complexity analysis that recursively optimizes task structure using scope_up_task/scope_down_task, 4) Create intelligent dependency resolution that can reorganize tasks based on analysis, 5) Implement workspace-aware task generation using git diffs and project files, 6) Add recursive workflow orchestration for PRD-to-finished-product automation, 7) Create task hierarchy optimization with automatic subtask management, 8) Implement real-time task validation and structure improvement. Include progress tracking for multi-phase PRD processing.
+
+# Test Strategy:
+Test PRD parsing with various complexity levels. Verify recursive expansion and optimization workflows. Integration tests with actual workspace context and git diffs. Test autonomous dependency resolution. End-to-end tests from PRD input to optimized task structure.

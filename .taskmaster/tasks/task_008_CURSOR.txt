@@ -1,0 +1,316 @@
+# Task ID: 8
+# Title: Refactor duplicate code segments in cursor-agent.js for improved maintainability
+# Status: pending
+# Dependencies: 1, 3, 7
+# Priority: medium
+# Description: Identify and extract repeated patterns in the 985-line cursor-agent.js file, focusing on error handling, logging, process management, and validation logic into reusable utility methods.
+# Details:
+**Analysis Phase:**
+1. **Code Pattern Analysis:** Examine src/ai-providers/cursor-agent.js to identify duplicate code segments including:
+   - Error handling patterns (try-catch blocks, error formatting, logging)
+   - Process management (spawn configuration, argument formatting, output handling)
+   - Validation logic (input validation, schema validation, JSON parsing)
+   - Logging patterns (debug messages, progress tracking, error reporting)
+
+**Refactoring Implementation:**
+2. **Create Utility Modules:**
+   - `src/utils/processUtils.js`: Extract spawn configuration, argument formatting, and output capture logic
+   - `src/utils/validationUtils.js`: Common validation patterns for inputs, schemas, and JSON parsing
+   - `src/utils/errorHandling.js`: Standardized error formatting, logging, and recovery patterns
+   - `src/utils/loggingUtils.js`: Consistent logging patterns with different verbosity levels
+
+3. **Refactor cursor-agent.js:**
+   - Replace duplicate error handling with standardized utility calls
+   - Extract common process management patterns into reusable functions
+   - Consolidate validation logic using shared utility methods
+   - Standardize logging calls throughout the file
+   - Maintain existing functionality while improving code organization
+
+**Quality Improvements:**
+4. **Code Organization:** Reduce file size from 985 lines by extracting 200-300 lines into utilities
+5. **Maintainability:** Create single points of truth for common patterns
+6. **Consistency:** Ensure uniform error handling and logging across the provider
+7. **Documentation:** Add JSDoc comments to new utility functions
+
+# Test Strategy:
+**Validation Testing:**
+1. **Functional Regression Tests:** Run existing cursor-agent provider tests to ensure all functionality remains intact after refactoring
+2. **Unit Testing:** Create unit tests for each new utility module (processUtils, validationUtils, errorHandling, loggingUtils)
+3. **Integration Testing:** Validate cursor-agent provider still works correctly with TaskMaster operations (add-task, expand, research)
+4. **Code Quality Verification:** 
+   - Measure line count reduction (target: 200-300 lines extracted)
+   - Verify no duplicate code patterns remain using static analysis
+   - Confirm consistent error handling patterns throughout
+5. **Edge Case Testing:** Test error scenarios, invalid inputs, and process failures to ensure utility functions handle edge cases properly
+6. **Performance Validation:** Benchmark before/after to ensure refactoring doesn't impact performance negatively
+
+# Subtasks:
+## 1. Extract error handling utility methods [pending]
+### Dependencies: None
+### Description: Create reusable error handling methods to eliminate duplicate try-catch patterns with cursor-agent specific error formatting
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Multiple try-catch blocks with nearly identical error logging and error message formatting:
+
+```javascript
+} catch (error) {
+    log('cursor-agent [operation] error:', error);
+    throw new Error(`Cursor Agent [operation] failed: ${error.message}`);
+}
+```
+
+Found in:
+- getClient() method (lines 72-74)
+- generateText() method (lines 147-152)
+- generateObject() method (lines 239-242)
+- _executeCursorAgentCore() setup (lines 510-512)
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_handleCursorAgentError(error, operation, progressTracker?)`
+- `_logAndThrowError(error, operation)`
+
+BENEFITS:
+- Consistent error messaging across all methods
+- Centralized error logging logic
+- Easier maintenance and updates to error handling
+
+## 2. Extract progress tracking utility methods [pending]
+### Dependencies: None
+### Description: Create reusable progress tracking helper methods to eliminate duplicate progress tracker patterns across methods
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Repeated progress tracking code with similar patterns throughout the class:
+
+```javascript
+const progressTracker = options.progressTracker || providerParams.progressTracker;
+// ...
+if (progressTracker) {
+    progressTracker.updateProgress(0.X, 'Some message');
+}
+// ...
+if (progressTracker) {
+    progressTracker.error(`Error message: ${error.message}`);
+}
+```
+
+Found in:
+- generateText() method (lines 89, 94, 112, 117, 122, 132, 148)
+- generateObject() method (lines 166, 169, 196)
+- executeCursorAgent() method (lines 338, 375, 506)
+- _executeCursorAgentCore() method (multiple instances)
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_extractProgressTracker(options, providerParams)`
+- `_updateProgressIfEnabled(progressTracker, percentage, message)`
+- `_reportProgressError(progressTracker, error, operation)`
+- `_completeProgressWithTokens(progressTracker, inputTokens, outputTokens)`
+
+BENEFITS:
+- Consistent progress tracking patterns
+- Reduced repetitive null checks
+- Centralized progress management logic
+
+## 3. Extract JSON parsing and repair utility methods [pending]
+### Dependencies: None
+### Description: Create reusable JSON parsing methods with built-in repair fallback to eliminate duplicate parsing logic
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Multiple places where JSON is parsed with repair fallback logic:
+
+```javascript
+try {
+    const parsedObject = JSON.parse(jsonStr);
+    // success handling
+} catch (parseError) {
+    // Try to repair the JSON
+    try {
+        const { jsonrepair } = await import('jsonrepair');
+        const repairedJson = jsonrepair(jsonStr);
+        const parsedObject = JSON.parse(repairedJson);
+        // success handling after repair
+    } catch (repairError) {
+        // error handling
+    }
+}
+```
+
+Found in:
+- generateObject() method (lines 213-238)
+- _parseCompletionFromOutput() method (lines 564-570, 603-610)
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_parseJsonWithRepair(jsonString)` - Returns parsed object or throws
+- `_safeJsonParse(jsonString)` - Returns {success: boolean, data?: object, error?: string}
+- `_extractJsonFromResponse(responseText)` - Finds and parses JSON in text
+
+BENEFITS:
+- Consistent JSON parsing with repair across all methods
+- Centralized JSON error handling
+- Easier maintenance of JSON parsing logic
+- Better error messages and debugging
+
+## 4. Extract process cleanup utility methods [pending]
+### Dependencies: None
+### Description: Create reusable process and resource cleanup methods to eliminate duplicate cleanup patterns
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Repeated child process cleanup code with timeout management and resource disposal:
+
+```javascript
+const cleanup = () => {
+    clearTimeout(timeout);
+    
+    // Properly terminate the child process if it's still running
+    if (child && !child.killed) {
+        log('DEBUG: Terminating child process and removing listeners...');
+        child.removeAllListeners();
+        child.kill('SIGTERM');
+    }
+    
+    if (tmpFile) {
+        try {
+            fs.unlinkSync(tmpFile);
+            log('DEBUG: Cleaned up temp file:', tmpFile);
+        } catch (fileCleanupError) {
+            log('Warning: Failed to cleanup temp file:', {...});
+        }
+    }
+};
+```
+
+Found in:
+- _executeCursorAgentCore() method (lines 482-504)
+- Error cleanup in setup (lines 514-523)
+- Multiple places with similar kill/cleanup patterns
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_createProcessCleanup(child, timeout, tmpFile)` - Returns cleanup function
+- `_cleanupChildProcess(child)` - Safely terminates child process
+- `_cleanupTempFile(tmpFile)` - Safely removes temp file with logging
+- `_createResourceManager()` - Factory for managing multiple resources
+
+BENEFITS:
+- Consistent resource cleanup across all process operations
+- Centralized cleanup logic with proper error handling
+- Reduced risk of resource leaks
+- Better debugging and logging of cleanup operations
+
+## 5. Extract logging utility methods [pending]
+### Dependencies: None
+### Description: Create consistent logging helper methods to eliminate duplicate logging patterns with cursor-agent prefixes
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Repeated logging calls with similar cursor-agent prefixes and formatting:
+
+```javascript
+log('cursor-agent [operation] error:', error);
+log('cursor-agent [operation]:', data);
+log('DEBUG: [cursor-agent operation]:', details);
+log('Executing cursor-agent directly:', {...});
+log('cursor-agent response received:', {...});
+```
+
+Found in:
+- 10+ instances with 'cursor-agent' prefix across different methods
+- Debug logging with similar patterns (lines 362, 372, 380, 402, 415, 437, etc.)
+- Error logging with cursor-agent context
+- Execution logging with structured data
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_logCursorAgent(level, operation, data?)` - Standardized cursor-agent logging
+- `_logDebug(message, data?)` - Debug logging with consistent formatting
+- `_logExecution(operation, details)` - Execution logging with structured data
+- `_logResponse(operation, response)` - Response logging with data summary
+
+BENEFITS:
+- Consistent logging format across all cursor-agent operations
+- Centralized logging configuration and formatting
+- Easier debugging with structured log messages
+- Better log filtering and analysis capabilities
+- Reduced code duplication in logging calls
+
+## 6. Extract parameter processing utility methods [pending]
+### Dependencies: None
+### Description: Create reusable parameter extraction and validation methods to eliminate duplicate parameter processing patterns
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Repeated parameter extraction and processing across methods:
+
+```javascript
+const progressTracker = options.progressTracker || providerParams.progressTracker;
+const model = options.model || providerParams.modelId || 'sonnet-4';
+const prompt = this.formatMessages(options.messages, {...});
+// Parameter validation and processing
+```
+
+Found in:
+- generateText() method (lines 89, 97, 99)
+- generateObject() method (lines 166, 173, 175)
+- Similar patterns in buildCursorAgentArgs() for option processing
+
+ADDITIONAL PATTERNS:
+- Model mapping logic (mapModelIdToCursorAgent) used in buildCursorAgentArgs
+- Message formatting with similar patterns
+- Option validation and defaults
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_extractCommonParams(options, providerParams)` - Extract standard parameters
+- `_processModelOption(modelOption)` - Handle model mapping and validation
+- `_validateAndNormalizeOptions(options, providerParams)` - Normalize all options
+- `_preparePromptFromMessages(messages, formatOptions)` - Message processing
+
+BENEFITS:
+- Consistent parameter processing across all methods
+- Centralized validation and default handling
+- Reduced parameter extraction boilerplate
+- Easier maintenance of parameter logic
+
+## 7. Extract schema and temp file utility methods [pending]
+### Dependencies: None
+### Description: Create reusable schema processing and temp file management methods to eliminate duplicate patterns
+### Details:
+DUPLICATE PATTERN IDENTIFIED:
+Multiple patterns for schema processing and temp file management:
+
+**Schema Processing:**
+```javascript
+// Build schema instructions if schema is provided
+let schemaInstructions = '';
+if (options.schema && options.objectName) {
+    schemaInstructions = this._buildSchemaInstructions(options.schema, options.objectName);
+}
+```
+
+**Temp File Management:**
+```javascript
+// Create temp file for prompt to avoid shell escaping issues
+tmpFile = `/tmp/cursor-prompt-${sessionId}.txt`;
+fs.writeFileSync(tmpFile, prompt, 'utf8');
+log('DEBUG: Temp file created:', tmpFile);
+// ... later cleanup with error handling
+```
+
+Found in:
+- generateObject() method (schema processing, lines 177-182)
+- _buildSchemaInstructions() method (multiple schema types)
+- _executeCursorAgentCore() method (temp file creation/cleanup, lines 370-372, 497-502)
+
+REFACTORING GOAL:
+Create utility methods like:
+- `_processSchemaForPrompt(schema, objectName)` - Complete schema to prompt processing
+- `_createTempPromptFile(prompt, sessionId)` - Secure temp file creation
+- `_buildJsonInstructions(schemaInstructions)` - Standard JSON response formatting
+- `_getTempFilePath(sessionId, suffix?)` - Consistent temp file naming
+
+BENEFITS:
+- Consistent schema processing across all generateObject calls
+- Secure and reliable temp file management
+- Centralized temp file naming and cleanup
+- Better error handling for file operations
+

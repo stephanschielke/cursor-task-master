@@ -1,0 +1,31 @@
+# Task ID: 2
+# Title: Fix cursor-agent output parsing error
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Investigate and fix 'Cannot read properties of undefined reading match' error in cursor-agent provider generateObject method
+# Details:
+Error Analysis:
+The cursor-agent provider is failing with 'Cannot read properties of undefined (reading 'match')' error during AI operations.
+
+Observations:
+- Error occurs in generateObject method of CursorAgentProvider
+- cursor-agent CLI command appears to run but returns empty output '{}'
+- The error suggests a regex match operation is being performed on an undefined value
+- This prevents any AI-powered TaskMaster operations from working with cursor-agent provider
+
+Investigation Steps:
+1. Check cursor-agent CLI output parsing logic in src/ai-providers/cursor-agent.js
+2. Examine regex patterns used for output extraction
+3. Add proper null/undefined checks before regex operations
+4. Test cursor-agent CLI directly to understand expected output format
+5. Add debug logging to identify where undefined value originates
+6. Implement robust error handling for malformed outputs
+
+Expected Fix:
+- cursor-agent provider should handle empty or malformed outputs gracefully
+- Proper error messages should guide users to resolve configuration issues
+- AI operations should work reliably with cursor-agent provider
+
+# Test Strategy:
+Test cursor-agent provider with various TaskMaster AI operations (add-task, expand, research) to verify parsing works correctly and no undefined errors occur

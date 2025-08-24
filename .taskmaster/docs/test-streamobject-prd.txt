@@ -1,0 +1,20 @@
+# Test StreamObject Fix PRD
+
+## Project Overview
+Simple test project to verify the cursor-agent streamObject functionality works with PRD parsing.
+
+## Goals
+1. Create a basic web app with authentication
+2. Add user dashboard functionality  
+3. Implement basic CRUD operations
+
+## Technical Requirements
+- Use Node.js and Express
+- JWT authentication
+- SQLite database
+- Basic frontend with HTML/CSS/JS
+
+## Success Criteria
+- Users can register and login
+- Dashboard shows user information
+- Basic task management functionality
