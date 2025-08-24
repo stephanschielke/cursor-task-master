@@ -322,13 +322,30 @@ export class CursorAgentProvider extends BaseAIProvider {
 				const newChatId = result.chat_id || result.chatId || result.sessionId || result.session_id;
 				const isNewSession = !cachedChatId || retriedWithoutResume;
 
-				cacheChatId(projectRoot, model, newChatId, isNewSession);
+				// Check for silent resume failures (cursor-agent creates new session without error)
+				if (cachedChatId && !retriedWithoutResume && newChatId !== cachedChatId && !result.is_error) {
+					log('Silent resume failure detected - got different session ID', {
+						requestedChatId: cachedChatId,
+						receivedChatId: newChatId,
+						model,
+						projectRoot
+					});
+
+					// Mark the old session as failed since resume didn't work
+					markResumeFailure(projectRoot, model, cachedChatId);
+
+					// Note: We don't retry here since we already got a valid response with a new session
+					// The next call will use a fresh session instead of the failed one
+				}
+
+				cacheChatId(projectRoot, model, newChatId, isNewSession || (cachedChatId && newChatId !== cachedChatId));
 				log('Stored chat ID for session reuse', {
 					chatId: newChatId,
 					projectRoot,
 					model,
-					isNewSession,
-					wasRetry: retriedWithoutResume
+					isNewSession: isNewSession || (cachedChatId && newChatId !== cachedChatId),
+					wasRetry: retriedWithoutResume,
+					silentResumeFailure: cachedChatId && newChatId !== cachedChatId && !retriedWithoutResume
 				});
 			}
 
@@ -1018,7 +1035,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 						setTimeout(async () => {
 							if (!resultFound) {
 								resultFound = true;
-								const parsed = this._parseCompletionFromOutput(
+								const parsed = await this._parseCompletionFromOutput(
 									outputBuffer,
 									isResearchOp
 								);
@@ -1070,7 +1087,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 						);
 
 						// OPTIMIZED: Try parsing with more aggressive cleanup for research operations
-						const parsed = this._parseCompletionFromOutput(
+						const parsed = await this._parseCompletionFromOutput(
 							outputBuffer,
 							isResearchOp
 						);
@@ -1184,131 +1201,30 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 	/**
 	 * Parse completion result from cursor-agent output
-	 * OPTIMIZED: Enhanced parsing for research operations with larger responses
+	 * IMPROVED: Uses specialized cursor-agent JSON parser for reliable stream parsing
 	 * @private
 	 */
-	_parseCompletionFromOutput(output, isResearchOperation = false) {
-		const cleanOutput = output
-			.replace(/\x1b\[[0-9;]*m/g, '') // Remove ANSI color codes
-			.replace(/[\x00-\x1F\x7F]/g, ''); // Remove control characters
+	async _parseCompletionFromOutput(output, isResearchOperation = false) {
+		const { parseCursorAgentOutput } = await import('../utils/cursor-agent-json-parser.js');
 
-		// OPTIMIZED: More aggressive search for research operations with larger outputs
-		const resultLineRegex = isResearchOperation
-			? /"type":"result"[\s\S]*?"result":/g
-			: // More permissive for research
-			/"type":"result"[^}]*}/g; // Original for regular ops
-		let match;
-		while ((match = resultLineRegex.exec(cleanOutput)) !== null) {
-			// Find the start of the JSON object by looking backwards for opening brace
-			let startIdx = match.index;
-			while (startIdx > 0 && cleanOutput[startIdx] !== '{') {
-				startIdx--;
+		try {
+			const parsed = parseCursorAgentOutput(output, isResearchOperation);
+
+			if (parsed) {
+				log('DEBUG: Successfully parsed cursor-agent result:', {
+					isError: parsed.is_error,
+					resultLength: parsed.result?.length || 0,
+					sessionId: parsed.session_id
+				});
+				return parsed;
+			} else {
+				log('DEBUG: No valid result found in output');
+				return null;
 			}
-
-			// Find the end by counting braces
-			let braceCount = 0;
-			let endIdx = startIdx;
-			for (let i = startIdx; i < cleanOutput.length; i++) {
-				if (cleanOutput[i] === '{') braceCount++;
-				else if (cleanOutput[i] === '}') braceCount--;
-
-				if (braceCount === 0) {
-					endIdx = i;
-					break;
-				}
-			}
-
-			if (braceCount === 0) {
-				const jsonStr = cleanOutput.substring(startIdx, endIdx + 1);
-				try {
-					const resultObj = JSON.parse(jsonStr);
-					if (resultObj.type === 'result') {
-						const isError = resultObj.is_error === true;
-						const actualResult = resultObj.result || '';
-
-						const parsed = {
-							result: actualResult,
-							is_error: isError,
-							usage: {
-								totalTokens: Math.round((resultObj.duration_api_ms || 0) / 100),
-								promptTokens: Math.round(
-									((resultObj.duration_api_ms || 0) / 100) * 0.7
-								),
-								completionTokens: Math.round(
-									((resultObj.duration_api_ms || 0) / 100) * 0.3
-								)
-							},
-							finishReason: 'stop',
-							session_id: resultObj.session_id,
-							request_id: resultObj.request_id
-						};
-
-						log('DEBUG: Successfully parsed cursor-agent result:', {
-							isError,
-							resultLength: actualResult.length,
-							sessionId: resultObj.session_id
-						});
-
-						return parsed;
-					}
-				} catch (e) {
-					log('DEBUG: Failed to parse JSON result:', e.message);
-					continue;
-				}
-			}
+		} catch (error) {
+			log('DEBUG: Cursor-agent parsing error:', error.message);
+			return null;
 		}
-
-		// Fallback: Look for lines with "type":"result"
-		const lines = cleanOutput.split('\n');
-		for (const line of lines) {
-			const trimmedLine = line.trim();
-			if (
-				trimmedLine.includes('"type":"result"') &&
-				trimmedLine.includes('"result":')
-			) {
-				try {
-					const resultObj = JSON.parse(trimmedLine);
-					if (resultObj.type === 'result') {
-						const isError = resultObj.is_error === true;
-						const actualResult = resultObj.result || '';
-
-						const parsed = {
-							result: actualResult,
-							is_error: isError,
-							usage: {
-								totalTokens: Math.round((resultObj.duration_api_ms || 0) / 100),
-								promptTokens: Math.round(
-									((resultObj.duration_api_ms || 0) / 100) * 0.7
-								),
-								completionTokens: Math.round(
-									((resultObj.duration_api_ms || 0) / 100) * 0.3
-								)
-							},
-							finishReason: 'stop',
-							session_id: resultObj.session_id,
-							request_id: resultObj.request_id
-						};
-
-						log(
-							'DEBUG: Successfully parsed cursor-agent result via fallback:',
-							{
-								isError,
-								resultLength: actualResult.length,
-								sessionId: resultObj.session_id
-							}
-						);
-
-						return parsed;
-					}
-				} catch (e) {
-					log('DEBUG: Failed to parse fallback result line:', e.message);
-					continue;
-				}
-			}
-		}
-
-		log('DEBUG: No valid result found in output');
-		return null;
 	}
 
 	/**
