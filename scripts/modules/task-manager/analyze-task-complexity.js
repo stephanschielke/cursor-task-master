@@ -99,9 +99,9 @@ async function analyzeTaskComplexity(options, context = {}) {
 	// New parameters for task ID filtering
 	const specificIds = options.id
 		? options.id
-				.split(',')
-				.map((id) => parseInt(id.trim(), 10))
-				.filter((id) => !Number.isNaN(id))
+			.split(',')
+			.map((id) => parseInt(id.trim(), 10))
+			.filter((id) => !Number.isNaN(id))
 		: null;
 	const fromId = options.from !== undefined ? parseInt(options.from, 10) : null;
 	const toId = options.to !== undefined ? parseInt(options.to, 10) : null;
@@ -391,10 +391,10 @@ async function analyzeTaskComplexity(options, context = {}) {
 				console.log(
 					boxen(
 						chalk.white.bold('Suggested Next Steps:') +
-							'\n\n' +
-							`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
-							`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
-							`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
+						'\n\n' +
+						`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
+						`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
+						`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
 						{
 							padding: 1,
 							borderColor: 'cyan',
@@ -472,40 +472,55 @@ async function analyzeTaskComplexity(options, context = {}) {
 			reportLog('Parsing complexity analysis from text response...', 'info');
 			try {
 				let cleanedResponse = aiServiceResponse.mainResult;
-				cleanedResponse = cleanedResponse.trim();
 
-				const codeBlockMatch = cleanedResponse.match(
-					/```(?:json)?\s*([\s\S]*?)\s*```/
-				);
-				if (codeBlockMatch) {
-					cleanedResponse = codeBlockMatch[1].trim();
-				} else {
-					const firstBracket = cleanedResponse.indexOf('[');
-					const lastBracket = cleanedResponse.lastIndexOf(']');
-					if (firstBracket !== -1 && lastBracket > firstBracket) {
-						cleanedResponse = cleanedResponse.substring(
-							firstBracket,
-							lastBracket + 1
+				// Check if we already have a valid JSON array (from cursor-agent parser)
+				if (typeof cleanedResponse === 'object' && Array.isArray(cleanedResponse)) {
+					complexityAnalysis = cleanedResponse;
+				} else if (typeof cleanedResponse === 'string') {
+					cleanedResponse = cleanedResponse.trim();
+
+					// Try parsing as-is first (for cursor-agent pre-parsed results)
+					try {
+						complexityAnalysis = JSON.parse(cleanedResponse);
+					} catch (directParseError) {
+
+						// Fallback to cleaning logic for raw AI responses
+						const codeBlockMatch = cleanedResponse.match(
+							/```(?:json)?\s*([\s\S]*?)\s*```/
 						);
-					} else {
-						reportLog(
-							'Warning: Response does not appear to be a JSON array.',
-							'warn'
-						);
+						if (codeBlockMatch) {
+							cleanedResponse = codeBlockMatch[1].trim();
+						} else {
+							const firstBracket = cleanedResponse.indexOf('[');
+							const lastBracket = cleanedResponse.lastIndexOf(']');
+							if (firstBracket !== -1 && lastBracket > firstBracket) {
+								cleanedResponse = cleanedResponse.substring(
+									firstBracket,
+									lastBracket + 1
+								);
+							} else {
+								reportLog(
+									'Warning: Response does not appear to be a JSON array.',
+									'warn'
+								);
+							}
+						}
+
+						if (outputFormat === 'text' && getDebugFlag(session)) {
+							console.log(chalk.gray('Attempting to parse cleaned JSON...'));
+							console.log(chalk.gray('Cleaned response (first 100 chars):'));
+							console.log(chalk.gray(cleanedResponse.substring(0, 100)));
+							console.log(chalk.gray('Last 100 chars:'));
+							console.log(
+								chalk.gray(cleanedResponse.substring(cleanedResponse.length - 100))
+							);
+						}
+
+						complexityAnalysis = JSON.parse(cleanedResponse);
 					}
+				} else {
+					throw new Error(`Unexpected response type: ${typeof cleanedResponse}`);
 				}
-
-				if (outputFormat === 'text' && getDebugFlag(session)) {
-					console.log(chalk.gray('Attempting to parse cleaned JSON...'));
-					console.log(chalk.gray('Cleaned response (first 100 chars):'));
-					console.log(chalk.gray(cleanedResponse.substring(0, 100)));
-					console.log(chalk.gray('Last 100 chars:'));
-					console.log(
-						chalk.gray(cleanedResponse.substring(cleanedResponse.length - 100))
-					);
-				}
-
-				complexityAnalysis = JSON.parse(cleanedResponse);
 			} catch (parseError) {
 				if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
 				reportLog(
@@ -656,10 +671,10 @@ async function analyzeTaskComplexity(options, context = {}) {
 				console.log(
 					boxen(
 						chalk.white.bold('Suggested Next Steps:') +
-							'\n\n' +
-							`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
-							`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
-							`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
+						'\n\n' +
+						`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
+						`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
+						`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
 						{
 							padding: 1,
 							borderColor: 'cyan',
