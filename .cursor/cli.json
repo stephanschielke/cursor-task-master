@@ -1,35 +1,30 @@
 {
-  "permissions": {
-    "allow": [
-      "Shell(*)",
-      "Shell(ls)",
-      "Shell(cat)",
-      "Shell(echo)",
-      "Shell(mkdir)",
-      "Shell(touch)",
-      "Shell(cp)",
-      "Shell(mv)",
-      "Shell(rm)",
-      "Shell(grep)",
-      "Shell(find)",
-      "Shell(tmux)",
-      "Shell(git)",
-      "Shell(npm)",
-      "Shell(node)",
-      "Shell(ps)",
-      "Shell(kill)",
-      "Shell(timeout)",
-      "Shell(sed)",
-      "Shell(awk)",
-      "MCP(*)",
-      "FileSystem(*)",
-      "Network(*)"
-    ],
-    "deny": [
-      "Shell(sudo)",
-      "Shell(su)",
-      "Shell(chmod +x /)",
-      "Shell(rm -rf /)"
-    ]
-  }
+	"permissions": {
+		"allow": [
+			"Shell(*)",
+			"Shell(ls)",
+			"Shell(cat)",
+			"Shell(echo)",
+			"Shell(mkdir)",
+			"Shell(touch)",
+			"Shell(cp)",
+			"Shell(mv)",
+			"Shell(rm)",
+			"Shell(grep)",
+			"Shell(find)",
+			"Shell(tmux)",
+			"Shell(git)",
+			"Shell(npm)",
+			"Shell(node)",
+			"Shell(ps)",
+			"Shell(kill)",
+			"Shell(timeout)",
+			"Shell(sed)",
+			"Shell(awk)",
+			"MCP(*)",
+			"FileSystem(*)",
+			"Network(*)"
+		],
+		"deny": ["Shell(sudo)", "Shell(su)", "Shell(chmod +x /)", "Shell(rm -rf /)"]
+	}
 }

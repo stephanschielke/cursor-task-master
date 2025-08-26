@@ -1,8 +1,14 @@
 {
   "/home/stephan/Code/claude-task-master:sonnet-4": {
-    "chatId": "fa7cf924-e5cd-4b1b-ae4a-5c9b2097a27b",
-    "createdAt": 1756185291205,
-    "lastUsedAt": 1756185291205,
+    "chatId": "test-chat-123",
+    "createdAt": 1756194022201,
+    "lastUsedAt": 1756194022201,
+    "resumeAttempts": 0
+  },
+  "/home/stephan/Code/claude-task-master:gpt-5": {
+    "chatId": "mock-session-123",
+    "createdAt": 1756192864925,
+    "lastUsedAt": 1756194020668,
     "resumeAttempts": 0
   }
 }

@@ -31,7 +31,7 @@ cursor-agent status
 # Verify tmux availability
 tmux -V
 
-# Test basic functionality  
+# Test basic functionality
 echo "Hello" | cursor-agent --print --output-format json --model sonnet-4
 ```
 
