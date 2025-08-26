@@ -124,7 +124,7 @@ jest.unstable_mockModule(
 			global: { projectName: 'Test Project' }
 		})),
 		writeConfig: jest.fn(() => true),
-		ConfigurationError: class extends Error { },
+		ConfigurationError: class extends Error {},
 		isConfigFilePresent: jest.fn(() => true),
 
 		// Validation

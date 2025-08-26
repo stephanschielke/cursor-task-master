@@ -307,9 +307,9 @@ async function runInteractiveSetup(projectRoot) {
 		const cancelOption = { name: '⏹ Cancel Model Setup', value: '__CANCEL__' }; // Symbol updated
 		const noChangeOption = currentModel?.modelId
 			? {
-				name: `✔ No change to current ${role} model (${currentModel.modelId})`, // Symbol updated
-				value: '__NO_CHANGE__'
-			}
+					name: `✔ No change to current ${role} model (${currentModel.modelId})`, // Symbol updated
+					value: '__NO_CHANGE__'
+				}
 			: null;
 
 		// Define custom provider options
@@ -330,12 +330,13 @@ async function runInteractiveSetup(projectRoot) {
 				const providerModels = models
 					.filter((m) => m.allowed_roles.includes(role))
 					.map((m) => ({
-						name: `${provider} / ${m.id} ${m.cost_per_1m_tokens
-							? chalk.gray(
-								`($${m.cost_per_1m_tokens.input.toFixed(2)} input | $${m.cost_per_1m_tokens.output.toFixed(2)} output)`
-							)
-							: ''
-							}`,
+						name: `${provider} / ${m.id} ${
+							m.cost_per_1m_tokens
+								? chalk.gray(
+										`($${m.cost_per_1m_tokens.input.toFixed(2)} input | $${m.cost_per_1m_tokens.output.toFixed(2)} output)`
+									)
+								: ''
+						}`,
 						value: { id: m.id, provider },
 						short: `${provider}/${m.id}`
 					}));
@@ -2049,7 +2050,10 @@ function registerCommands(programInstance) {
 			'Save research results to .taskmaster/docs/research/ directory'
 		)
 		.option('--tag <tag>', 'Specify tag context for task operations')
-		.option('--no-followup', 'Disable interactive follow-up questions and auto-exit after results')
+		.option(
+			'--no-followup',
+			'Disable interactive follow-up questions and auto-exit after results'
+		)
 		.action(async (prompt, options) => {
 			// Initialize TaskMaster
 			const initOptions = {
@@ -2208,7 +2212,10 @@ function registerCommands(programInstance) {
 				includeProjectTree: !!options.tree,
 				saveTarget: options.save ? options.save.trim() : null,
 				saveToId: options.saveTo ? options.saveTo.trim() : null,
-				allowFollowUp: options.followup !== false && process.stdin.isTTY && process.stdout.isTTY, // Allow follow-up only in interactive terminals
+				allowFollowUp:
+					options.followup !== false &&
+					process.stdin.isTTY &&
+					process.stdout.isTTY, // Allow follow-up only in interactive terminals
 				detailLevel: options.detail ? options.detail.toLowerCase() : 'medium',
 				tasksPath: taskMaster.getTasksPath(),
 				projectRoot: taskMaster.getProjectRoot()
@@ -3013,25 +3020,25 @@ ${result.result}
 							chalk.white.bold(
 								`Subtask ${parentId}.${subtask.id} Added Successfully`
 							) +
-							'\n\n' +
-							chalk.white(`Title: ${subtask.title}`) +
-							'\n' +
-							chalk.white(`Status: ${getStatusWithColor(subtask.status)}`) +
-							'\n' +
-							(dependencies.length > 0
-								? chalk.white(`Dependencies: ${dependencies.join(', ')}`) +
-								'\n'
-								: '') +
-							'\n' +
-							chalk.white.bold('Next Steps:') +
-							'\n' +
-							chalk.cyan(
-								`1. Run ${chalk.yellow(`task-master show ${parentId}`)} to see the parent task with all subtasks`
-							) +
-							'\n' +
-							chalk.cyan(
-								`2. Run ${chalk.yellow(`task-master set-status --id=${parentId}.${subtask.id} --status=in-progress`)} to start working on it`
-							),
+								'\n\n' +
+								chalk.white(`Title: ${subtask.title}`) +
+								'\n' +
+								chalk.white(`Status: ${getStatusWithColor(subtask.status)}`) +
+								'\n' +
+								(dependencies.length > 0
+									? chalk.white(`Dependencies: ${dependencies.join(', ')}`) +
+										'\n'
+									: '') +
+								'\n' +
+								chalk.white.bold('Next Steps:') +
+								'\n' +
+								chalk.cyan(
+									`1. Run ${chalk.yellow(`task-master show ${parentId}`)} to see the parent task with all subtasks`
+								) +
+								'\n' +
+								chalk.cyan(
+									`2. Run ${chalk.yellow(`task-master set-status --id=${parentId}.${subtask.id} --status=in-progress`)} to start working on it`
+								),
 							{
 								padding: 1,
 								borderColor: 'green',
@@ -3047,19 +3054,19 @@ ${result.result}
 					console.log(
 						boxen(
 							chalk.white.bold('Usage Examples:') +
-							'\n\n' +
-							chalk.white('Convert existing task to subtask:') +
-							'\n' +
-							chalk.yellow(
-								`  task-master add-subtask --parent=5 --task-id=8`
-							) +
-							'\n\n' +
-							chalk.white('Create new subtask:') +
-							'\n' +
-							chalk.yellow(
-								`  task-master add-subtask --parent=5 --title="Implement login UI" --description="Create the login form"`
-							) +
-							'\n\n',
+								'\n\n' +
+								chalk.white('Convert existing task to subtask:') +
+								'\n' +
+								chalk.yellow(
+									`  task-master add-subtask --parent=5 --task-id=8`
+								) +
+								'\n\n' +
+								chalk.white('Create new subtask:') +
+								'\n' +
+								chalk.yellow(
+									`  task-master add-subtask --parent=5 --title="Implement login UI" --description="Create the login form"`
+								) +
+								'\n\n',
 							{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 						)
 					);
@@ -3166,24 +3173,24 @@ ${result.result}
 								chalk.white.bold(
 									`Subtask ${subtaskId} Converted to Task #${result.id}`
 								) +
-								'\n\n' +
-								chalk.white(`Title: ${result.title}`) +
-								'\n' +
-								chalk.white(`Status: ${getStatusWithColor(result.status)}`) +
-								'\n' +
-								chalk.white(
-									`Dependencies: ${result.dependencies.join(', ')}`
-								) +
-								'\n\n' +
-								chalk.white.bold('Next Steps:') +
-								'\n' +
-								chalk.cyan(
-									`1. Run ${chalk.yellow(`task-master show ${result.id}`)} to see details of the new task`
-								) +
-								'\n' +
-								chalk.cyan(
-									`2. Run ${chalk.yellow(`task-master set-status --id=${result.id} --status=in-progress`)} to start working on it`
-								),
+									'\n\n' +
+									chalk.white(`Title: ${result.title}`) +
+									'\n' +
+									chalk.white(`Status: ${getStatusWithColor(result.status)}`) +
+									'\n' +
+									chalk.white(
+										`Dependencies: ${result.dependencies.join(', ')}`
+									) +
+									'\n\n' +
+									chalk.white.bold('Next Steps:') +
+									'\n' +
+									chalk.cyan(
+										`1. Run ${chalk.yellow(`task-master show ${result.id}`)} to see details of the new task`
+									) +
+									'\n' +
+									chalk.cyan(
+										`2. Run ${chalk.yellow(`task-master set-status --id=${result.id} --status=in-progress`)} to start working on it`
+									),
 								{
 									padding: 1,
 									borderColor: 'green',
@@ -3197,8 +3204,8 @@ ${result.result}
 						console.log(
 							boxen(
 								chalk.white.bold(`Subtask ${subtaskId} Removed`) +
-								'\n\n' +
-								chalk.white('The subtask has been successfully deleted.'),
+									'\n\n' +
+									chalk.white('The subtask has been successfully deleted.'),
 								{
 									padding: 1,
 									borderColor: 'green',
@@ -3226,23 +3233,23 @@ ${result.result}
 		console.log(
 			boxen(
 				chalk.white.bold('Remove Subtask Command Help') +
-				'\n\n' +
-				chalk.cyan('Usage:') +
-				'\n' +
-				`  task-master remove-subtask --id=<parentId.subtaskId> [options]\n\n` +
-				chalk.cyan('Options:') +
-				'\n' +
-				'  -i, --id <id>       Subtask ID(s) to remove in format "parentId.subtaskId" (can be comma-separated, required)\n' +
-				'  -c, --convert       Convert the subtask to a standalone task instead of deleting it\n' +
-				'  -f, --file <file>   Path to the tasks file (default: "' +
-				TASKMASTER_TASKS_FILE +
-				'")\n' +
-				'  --skip-generate     Skip regenerating task files\n\n' +
-				chalk.cyan('Examples:') +
-				'\n' +
-				'  task-master remove-subtask --id=5.2\n' +
-				'  task-master remove-subtask --id=5.2,6.3,7.1\n' +
-				'  task-master remove-subtask --id=5.2 --convert',
+					'\n\n' +
+					chalk.cyan('Usage:') +
+					'\n' +
+					`  task-master remove-subtask --id=<parentId.subtaskId> [options]\n\n` +
+					chalk.cyan('Options:') +
+					'\n' +
+					'  -i, --id <id>       Subtask ID(s) to remove in format "parentId.subtaskId" (can be comma-separated, required)\n' +
+					'  -c, --convert       Convert the subtask to a standalone task instead of deleting it\n' +
+					'  -f, --file <file>   Path to the tasks file (default: "' +
+					TASKMASTER_TASKS_FILE +
+					'")\n' +
+					'  --skip-generate     Skip regenerating task files\n\n' +
+					chalk.cyan('Examples:') +
+					'\n' +
+					'  task-master remove-subtask --id=5.2\n' +
+					'  task-master remove-subtask --id=5.2,6.3,7.1\n' +
+					'  task-master remove-subtask --id=5.2 --convert',
 				{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 			)
 		);
@@ -3253,25 +3260,25 @@ ${result.result}
 		console.log(
 			boxen(
 				chalk.white.bold('Tags Command Help') +
-				'\n\n' +
-				chalk.cyan('Usage:') +
-				'\n' +
-				`  task-master tags [options]\n\n` +
-				chalk.cyan('Options:') +
-				'\n' +
-				'  -f, --file <file>   Path to the tasks file (default: "' +
-				TASKMASTER_TASKS_FILE +
-				'")\n' +
-				'  --show-metadata     Show detailed metadata for each tag\n\n' +
-				chalk.cyan('Examples:') +
-				'\n' +
-				'  task-master tags\n' +
-				'  task-master tags --show-metadata\n\n' +
-				chalk.cyan('Related Commands:') +
-				'\n' +
-				'  task-master add-tag <name>      Create a new tag\n' +
-				'  task-master use-tag <name>      Switch to a tag\n' +
-				'  task-master delete-tag <name>   Delete a tag',
+					'\n\n' +
+					chalk.cyan('Usage:') +
+					'\n' +
+					`  task-master tags [options]\n\n` +
+					chalk.cyan('Options:') +
+					'\n' +
+					'  -f, --file <file>   Path to the tasks file (default: "' +
+					TASKMASTER_TASKS_FILE +
+					'")\n' +
+					'  --show-metadata     Show detailed metadata for each tag\n\n' +
+					chalk.cyan('Examples:') +
+					'\n' +
+					'  task-master tags\n' +
+					'  task-master tags --show-metadata\n\n' +
+					chalk.cyan('Related Commands:') +
+					'\n' +
+					'  task-master add-tag <name>      Create a new tag\n' +
+					'  task-master use-tag <name>      Switch to a tag\n' +
+					'  task-master delete-tag <name>   Delete a tag',
 				{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 			)
 		);
@@ -3282,24 +3289,24 @@ ${result.result}
 		console.log(
 			boxen(
 				chalk.white.bold('Add Tag Command Help') +
-				'\n\n' +
-				chalk.cyan('Usage:') +
-				'\n' +
-				`  task-master add-tag <tagName> [options]\n\n` +
-				chalk.cyan('Options:') +
-				'\n' +
-				'  -f, --file <file>        Path to the tasks file (default: "' +
-				TASKMASTER_TASKS_FILE +
-				'")\n' +
-				'  --copy-from-current      Copy tasks from the current tag to the new tag\n' +
-				'  --copy-from <tag>        Copy tasks from the specified tag to the new tag\n' +
-				'  -d, --description <text> Optional description for the tag\n\n' +
-				chalk.cyan('Examples:') +
-				'\n' +
-				'  task-master add-tag feature-xyz\n' +
-				'  task-master add-tag feature-xyz --copy-from-current\n' +
-				'  task-master add-tag feature-xyz --copy-from master\n' +
-				'  task-master add-tag feature-xyz -d "Feature XYZ development"',
+					'\n\n' +
+					chalk.cyan('Usage:') +
+					'\n' +
+					`  task-master add-tag <tagName> [options]\n\n` +
+					chalk.cyan('Options:') +
+					'\n' +
+					'  -f, --file <file>        Path to the tasks file (default: "' +
+					TASKMASTER_TASKS_FILE +
+					'")\n' +
+					'  --copy-from-current      Copy tasks from the current tag to the new tag\n' +
+					'  --copy-from <tag>        Copy tasks from the specified tag to the new tag\n' +
+					'  -d, --description <text> Optional description for the tag\n\n' +
+					chalk.cyan('Examples:') +
+					'\n' +
+					'  task-master add-tag feature-xyz\n' +
+					'  task-master add-tag feature-xyz --copy-from-current\n' +
+					'  task-master add-tag feature-xyz --copy-from master\n' +
+					'  task-master add-tag feature-xyz -d "Feature XYZ development"',
 				{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 			)
 		);
@@ -3310,23 +3317,23 @@ ${result.result}
 		console.log(
 			boxen(
 				chalk.white.bold('Delete Tag Command Help') +
-				'\n\n' +
-				chalk.cyan('Usage:') +
-				'\n' +
-				`  task-master delete-tag <tagName> [options]\n\n` +
-				chalk.cyan('Options:') +
-				'\n' +
-				'  -f, --file <file>   Path to the tasks file (default: "' +
-				TASKMASTER_TASKS_FILE +
-				'")\n' +
-				'  -y, --yes           Skip confirmation prompts\n\n' +
-				chalk.cyan('Examples:') +
-				'\n' +
-				'  task-master delete-tag feature-xyz\n' +
-				'  task-master delete-tag feature-xyz --yes\n\n' +
-				chalk.yellow('Warning:') +
-				'\n' +
-				'  This will permanently delete the tag and all its tasks!',
+					'\n\n' +
+					chalk.cyan('Usage:') +
+					'\n' +
+					`  task-master delete-tag <tagName> [options]\n\n` +
+					chalk.cyan('Options:') +
+					'\n' +
+					'  -f, --file <file>   Path to the tasks file (default: "' +
+					TASKMASTER_TASKS_FILE +
+					'")\n' +
+					'  -y, --yes           Skip confirmation prompts\n\n' +
+					chalk.cyan('Examples:') +
+					'\n' +
+					'  task-master delete-tag feature-xyz\n' +
+					'  task-master delete-tag feature-xyz --yes\n\n' +
+					chalk.yellow('Warning:') +
+					'\n' +
+					'  This will permanently delete the tag and all its tasks!',
 				{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 			)
 		);
@@ -3337,23 +3344,23 @@ ${result.result}
 		console.log(
 			boxen(
 				chalk.white.bold('Use Tag Command Help') +
-				'\n\n' +
-				chalk.cyan('Usage:') +
-				'\n' +
-				`  task-master use-tag <tagName> [options]\n\n` +
-				chalk.cyan('Options:') +
-				'\n' +
-				'  -f, --file <file>   Path to the tasks file (default: "' +
-				TASKMASTER_TASKS_FILE +
-				'")\n\n' +
-				chalk.cyan('Examples:') +
-				'\n' +
-				'  task-master use-tag feature-xyz\n' +
-				'  task-master use-tag master\n\n' +
-				chalk.cyan('Related Commands:') +
-				'\n' +
-				'  task-master tags                 List all available tags\n' +
-				'  task-master add-tag <name>       Create a new tag',
+					'\n\n' +
+					chalk.cyan('Usage:') +
+					'\n' +
+					`  task-master use-tag <tagName> [options]\n\n` +
+					chalk.cyan('Options:') +
+					'\n' +
+					'  -f, --file <file>   Path to the tasks file (default: "' +
+					TASKMASTER_TASKS_FILE +
+					'")\n\n' +
+					chalk.cyan('Examples:') +
+					'\n' +
+					'  task-master use-tag feature-xyz\n' +
+					'  task-master use-tag master\n\n' +
+					chalk.cyan('Related Commands:') +
+					'\n' +
+					'  task-master tags                 List all available tags\n' +
+					'  task-master add-tag <name>       Create a new tag',
 				{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 			)
 		);
@@ -3364,30 +3371,30 @@ ${result.result}
 		console.log(
 			boxen(
 				chalk.white.bold('Research Command Help') +
-				'\n\n' +
-				chalk.cyan('Usage:') +
-				'\n' +
-				`  task-master research "<query>" [options]\n\n` +
-				chalk.cyan('Required:') +
-				'\n' +
-				'  <query>             Research question or prompt (required)\n\n' +
-				chalk.cyan('Context Options:') +
-				'\n' +
-				'  -i, --id <ids>      Comma-separated task/subtask IDs for context (e.g., "15,23.2")\n' +
-				'  -f, --files <paths> Comma-separated file paths for context\n' +
-				'  -c, --context <text> Additional custom context text\n' +
-				'  --tree              Include project file tree structure\n\n' +
-				chalk.cyan('Output Options:') +
-				'\n' +
-				'  -d, --detail <level> Detail level: low, medium, high (default: medium)\n' +
-				'  --save-to <id>      Auto-save results to task/subtask ID (e.g., "15" or "15.2")\n' +
-				'  --tag <tag>         Specify tag context for task operations\n\n' +
-				chalk.cyan('Examples:') +
-				'\n' +
-				'  task-master research "How should I implement user authentication?"\n' +
-				'  task-master research "What\'s the best approach?" --id=15,23.2\n' +
-				'  task-master research "How does auth work?" --files=src/auth.js --tree\n' +
-				'  task-master research "Implementation steps?" --save-to=15.2 --detail=high',
+					'\n\n' +
+					chalk.cyan('Usage:') +
+					'\n' +
+					`  task-master research "<query>" [options]\n\n` +
+					chalk.cyan('Required:') +
+					'\n' +
+					'  <query>             Research question or prompt (required)\n\n' +
+					chalk.cyan('Context Options:') +
+					'\n' +
+					'  -i, --id <ids>      Comma-separated task/subtask IDs for context (e.g., "15,23.2")\n' +
+					'  -f, --files <paths> Comma-separated file paths for context\n' +
+					'  -c, --context <text> Additional custom context text\n' +
+					'  --tree              Include project file tree structure\n\n' +
+					chalk.cyan('Output Options:') +
+					'\n' +
+					'  -d, --detail <level> Detail level: low, medium, high (default: medium)\n' +
+					'  --save-to <id>      Auto-save results to task/subtask ID (e.g., "15" or "15.2")\n' +
+					'  --tag <tag>         Specify tag context for task operations\n\n' +
+					chalk.cyan('Examples:') +
+					'\n' +
+					'  task-master research "How should I implement user authentication?"\n' +
+					'  task-master research "What\'s the best approach?" --id=15,23.2\n' +
+					'  task-master research "How does auth work?" --files=src/auth.js --tree\n' +
+					'  task-master research "Implementation steps?" --save-to=15.2 --detail=high',
 				{ padding: 1, borderColor: 'blue', borderStyle: 'round' }
 			)
 		);
@@ -3606,10 +3613,10 @@ ${result.result}
 							chalk.green(
 								`Successfully removed ${result.removedTasks.length} task(s)/subtask(s).`
 							) +
-							(result.message ? `\n\nDetails:\n${result.message}` : '') +
-							(result.error
-								? `\n\nWarnings:\n${chalk.yellow(result.error)}`
-								: ''),
+								(result.message ? `\n\nDetails:\n${result.message}` : '') +
+								(result.error
+									? `\n\nWarnings:\n${chalk.yellow(result.error)}`
+									: ''),
 							{ padding: 1, borderColor: 'green', borderStyle: 'round' }
 						)
 					);
@@ -3619,8 +3626,8 @@ ${result.result}
 							chalk.red(
 								`Operation completed with errors. Removed ${result.removedTasks.length} task(s)/subtask(s).`
 							) +
-							(result.message ? `\n\nDetails:\n${result.message}` : '') +
-							(result.error ? `\n\nErrors:\n${chalk.red(result.error)}` : ''),
+								(result.message ? `\n\nDetails:\n${result.message}` : '') +
+								(result.error ? `\n\nErrors:\n${chalk.red(result.error)}` : ''),
 							{
 								padding: 1,
 								borderColor: 'red',
@@ -3953,10 +3960,10 @@ Examples:
 			if (availableResult.success) {
 				const activeIds = configResult.success
 					? [
-						configResult.data.activeModels.main.modelId,
-						configResult.data.activeModels.research.modelId,
-						configResult.data.activeModels.fallback?.modelId
-					].filter(Boolean)
+							configResult.data.activeModels.main.modelId,
+							configResult.data.activeModels.research.modelId,
+							configResult.data.activeModels.fallback?.modelId
+						].filter(Boolean)
 					: [];
 				const displayableAvailable = availableResult.data.models.filter(
 					(m) => !activeIds.includes(m.modelId) && !m.modelId.startsWith('[')
@@ -4068,84 +4075,84 @@ Examples:
 			function showMoveHelp() {
 				console.log(
 					chalk.white.bold('Move Command Help') +
-					'\n\n' +
-					chalk.cyan('Move tasks between tags or reorder within tags.') +
-					'\n\n' +
-					chalk.yellow.bold('Within-Tag Moves:') +
-					'\n' +
-					chalk.white('  task-master move --from=5 --to=7') +
-					'\n' +
-					chalk.white('  task-master move --from=5.2 --to=7.3') +
-					'\n' +
-					chalk.white('  task-master move --from=5,6,7 --to=10,11,12') +
-					'\n\n' +
-					chalk.yellow.bold('Cross-Tag Moves:') +
-					'\n' +
-					chalk.white(
-						'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress'
-					) +
-					'\n' +
-					chalk.white(
-						'  task-master move --from=5,6 --from-tag=backlog --to-tag=done'
-					) +
-					'\n\n' +
-					chalk.yellow.bold('Dependency Resolution:') +
-					'\n' +
-					chalk.white('  # Move with dependencies') +
-					'\n' +
-					chalk.white(
-						'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress --with-dependencies'
-					) +
-					'\n\n' +
-					chalk.white('  # Break dependencies') +
-					'\n' +
-					chalk.white(
-						'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress --ignore-dependencies'
-					) +
-					'\n\n' +
-					chalk.white('  # Force move (may break dependencies)') +
-					'\n' +
-					chalk.white(
-						'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress --force'
-					) +
-					'\n\n' +
-					chalk.yellow.bold('Best Practices:') +
-					'\n' +
-					chalk.white(
-						'  • Use --with-dependencies to move dependent tasks together'
-					) +
-					'\n' +
-					chalk.white(
-						'  • Use --ignore-dependencies to break cross-tag dependencies'
-					) +
-					'\n' +
-					chalk.white(
-						'  • Use --force only when you understand the consequences'
-					) +
-					'\n' +
-					chalk.white(
-						'  • Check dependencies first: task-master validate-dependencies'
-					) +
-					'\n' +
-					chalk.white(
-						'  • Fix dependency issues: task-master fix-dependencies'
-					) +
-					'\n\n' +
-					chalk.yellow.bold('Error Resolution:') +
-					'\n' +
-					chalk.white(
-						'  • Cross-tag dependency conflicts: Use --with-dependencies or --ignore-dependencies'
-					) +
-					'\n' +
-					chalk.white(
-						'  • Subtask movement: Promote subtask first with remove-subtask --convert'
-					) +
-					'\n' +
-					chalk.white(
-						'  • Invalid tags: Check available tags with task-master tags'
-					) +
-					'\n\n' +
-					chalk.gray('For more help, run: task-master move --help')
+						'\n\n' +
+						chalk.cyan('Move tasks between tags or reorder within tags.') +
+						'\n\n' +
+						chalk.yellow.bold('Within-Tag Moves:') +
+						'\n' +
+						chalk.white('  task-master move --from=5 --to=7') +
+						'\n' +
+						chalk.white('  task-master move --from=5.2 --to=7.3') +
+						'\n' +
+						chalk.white('  task-master move --from=5,6,7 --to=10,11,12') +
+						'\n\n' +
+						chalk.yellow.bold('Cross-Tag Moves:') +
+						'\n' +
+						chalk.white(
+							'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress'
+						) +
+						'\n' +
+						chalk.white(
+							'  task-master move --from=5,6 --from-tag=backlog --to-tag=done'
+						) +
+						'\n\n' +
+						chalk.yellow.bold('Dependency Resolution:') +
+						'\n' +
+						chalk.white('  # Move with dependencies') +
+						'\n' +
+						chalk.white(
+							'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress --with-dependencies'
+						) +
+						'\n\n' +
+						chalk.white('  # Break dependencies') +
+						'\n' +
+						chalk.white(
+							'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress --ignore-dependencies'
+						) +
+						'\n\n' +
+						chalk.white('  # Force move (may break dependencies)') +
+						'\n' +
+						chalk.white(
+							'  task-master move --from=5 --from-tag=backlog --to-tag=in-progress --force'
+						) +
+						'\n\n' +
+						chalk.yellow.bold('Best Practices:') +
+						'\n' +
+						chalk.white(
+							'  • Use --with-dependencies to move dependent tasks together'
+						) +
+						'\n' +
+						chalk.white(
+							'  • Use --ignore-dependencies to break cross-tag dependencies'
+						) +
+						'\n' +
+						chalk.white(
+							'  • Use --force only when you understand the consequences'
+						) +
+						'\n' +
+						chalk.white(
+							'  • Check dependencies first: task-master validate-dependencies'
+						) +
+						'\n' +
+						chalk.white(
+							'  • Fix dependency issues: task-master fix-dependencies'
+						) +
+						'\n\n' +
+						chalk.yellow.bold('Error Resolution:') +
+						'\n' +
+						chalk.white(
+							'  • Cross-tag dependency conflicts: Use --with-dependencies or --ignore-dependencies'
+						) +
+						'\n' +
+						chalk.white(
+							'  • Subtask movement: Promote subtask first with remove-subtask --convert'
+						) +
+						'\n' +
+						chalk.white(
+							'  • Invalid tags: Check available tags with task-master tags'
+						) +
+						'\n\n' +
+						chalk.gray('For more help, run: task-master move --help')
 				);
 			}
 
@@ -4929,10 +4936,10 @@ Examples:
 					const { useTag } = await import('./task-manager/tag-management.js');
 					const finalTagName = options.fromBranch
 						? (await import('./utils/git-utils.js')).sanitizeBranchNameForTag(
-							await (await import('./utils/git-utils.js')).getCurrentBranch(
-								projectRoot
+								await (await import('./utils/git-utils.js')).getCurrentBranch(
+									projectRoot
+								)
 							)
-						)
 						: tagName;
 					await useTag(
 						taskMaster.getTasksPath(),
@@ -5371,7 +5378,7 @@ function compareVersions(v1, v2) {
 function displayUpgradeNotification(currentVersion, latestVersion) {
 	const message = boxen(
 		`${chalk.blue.bold('Update Available!')} ${chalk.dim(currentVersion)} → ${chalk.green(latestVersion)}\n\n` +
-		`Run ${chalk.cyan('npm i task-master-ai@latest -g')} to update to the latest version with new features and bug fixes.`,
+			`Run ${chalk.cyan('npm i task-master-ai@latest -g')} to update to the latest version with new features and bug fixes.`,
 		{
 			padding: 1,
 			margin: { top: 1, bottom: 1 },
@@ -5461,37 +5468,37 @@ async function runCLI(argv = process.argv) {
 			console.error(
 				boxen(
 					chalk.red.bold('Configuration Update Required!') +
-					'\n\n' +
-					chalk.white('Taskmaster now uses a ') +
-					chalk.yellow.bold('configuration file') +
-					chalk.white(
-						' in your project for AI model choices and settings.\n\n' +
-						'This file appears to be '
-					) +
-					chalk.red.bold('missing') +
-					chalk.white('. No worries though.\n\n') +
-					chalk.cyan.bold('To create this file, run the interactive setup:') +
-					'\n' +
-					chalk.green('   task-master models --setup') +
-					'\n\n' +
-					chalk.white.bold('Key Points:') +
-					'\n' +
-					chalk.white('*   ') +
-					chalk.yellow.bold('Configuration file') +
-					chalk.white(
-						': Stores your AI model settings (do not manually edit)\n'
-					) +
-					chalk.white('*   ') +
-					chalk.yellow.bold('.env & .mcp.json') +
-					chalk.white(': Still used ') +
-					chalk.red.bold('only') +
-					chalk.white(' for your AI provider API keys.\n\n') +
-					chalk.cyan(
-						'`task-master models` to check your config & available models\n'
-					) +
-					chalk.cyan(
-						'`task-master models --setup` to adjust the AI models used by Taskmaster'
-					),
+						'\n\n' +
+						chalk.white('Taskmaster now uses a ') +
+						chalk.yellow.bold('configuration file') +
+						chalk.white(
+							' in your project for AI model choices and settings.\n\n' +
+								'This file appears to be '
+						) +
+						chalk.red.bold('missing') +
+						chalk.white('. No worries though.\n\n') +
+						chalk.cyan.bold('To create this file, run the interactive setup:') +
+						'\n' +
+						chalk.green('   task-master models --setup') +
+						'\n\n' +
+						chalk.white.bold('Key Points:') +
+						'\n' +
+						chalk.white('*   ') +
+						chalk.yellow.bold('Configuration file') +
+						chalk.white(
+							': Stores your AI model settings (do not manually edit)\n'
+						) +
+						chalk.white('*   ') +
+						chalk.yellow.bold('.env & .mcp.json') +
+						chalk.white(': Still used ') +
+						chalk.red.bold('only') +
+						chalk.white(' for your AI provider API keys.\n\n') +
+						chalk.cyan(
+							'`task-master models` to check your config & available models\n'
+						) +
+						chalk.cyan(
+							'`task-master models --setup` to adjust the AI models used by Taskmaster'
+						),
 					{
 						padding: 1,
 						margin: { top: 1 },

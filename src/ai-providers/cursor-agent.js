@@ -45,7 +45,9 @@ export class CursorAgentProvider extends BaseAIProvider {
 			maxSessions: parseInt(process.env.CURSOR_AGENT_MAX_SESSIONS || '50'),
 
 			// Max failed resume attempts before session invalidation (default: 3)
-			maxResumeAttempts: parseInt(process.env.CURSOR_AGENT_MAX_RESUME_ATTEMPTS || '3'),
+			maxResumeAttempts: parseInt(
+				process.env.CURSOR_AGENT_MAX_RESUME_ATTEMPTS || '3'
+			),
 
 			// Whether to persist sessions to disk (default: true for long-term storage)
 			persistToDisk: process.env.CURSOR_AGENT_PERSIST_SESSIONS !== 'false'
@@ -139,7 +141,7 @@ export class CursorAgentProvider extends BaseAIProvider {
 									yield chunk;
 
 									// Add small delay to simulate streaming
-									await new Promise(resolve => setTimeout(resolve, 50));
+									await new Promise((resolve) => setTimeout(resolve, 50));
 								}
 							},
 							text: result.text,
@@ -221,14 +223,14 @@ export class CursorAgentProvider extends BaseAIProvider {
 			let retriedWithoutResume = false;
 
 			try {
-				result = await this.executeCursorAgent(
-					args,
-					prompt,
-					progressTracker
-				);
+				result = await this.executeCursorAgent(args, prompt, progressTracker);
 
 				// Check for resume-related errors
-				if (result.is_error && cachedChatId && this.isResumeFailure(result.result)) {
+				if (
+					result.is_error &&
+					cachedChatId &&
+					this.isResumeFailure(result.result)
+				) {
 					log('Resume failure detected, retrying without cached session', {
 						cachedChatId,
 						error: result.result
@@ -258,7 +260,11 @@ export class CursorAgentProvider extends BaseAIProvider {
 				}
 			} catch (error) {
 				// If we have a cached session and this looks like a resume error, try without resume
-				if (cachedChatId && !retriedWithoutResume && this.isResumeFailure(error.message)) {
+				if (
+					cachedChatId &&
+					!retriedWithoutResume &&
+					this.isResumeFailure(error.message)
+				) {
 					log('Resume failure in exception, retrying without cached session', {
 						cachedChatId,
 						error: error.message
@@ -318,12 +324,26 @@ export class CursorAgentProvider extends BaseAIProvider {
 			}
 
 			// Extract and cache chat ID from response if available
-			if (result.chat_id || result.chatId || result.sessionId || result.session_id) {
-				const newChatId = result.chat_id || result.chatId || result.sessionId || result.session_id;
+			if (
+				result.chat_id ||
+				result.chatId ||
+				result.sessionId ||
+				result.session_id
+			) {
+				const newChatId =
+					result.chat_id ||
+					result.chatId ||
+					result.sessionId ||
+					result.session_id;
 				const isNewSession = !cachedChatId || retriedWithoutResume;
 
 				// Check for silent resume failures (cursor-agent creates new session without error)
-				if (cachedChatId && !retriedWithoutResume && newChatId !== cachedChatId && !result.is_error) {
+				if (
+					cachedChatId &&
+					!retriedWithoutResume &&
+					newChatId !== cachedChatId &&
+					!result.is_error
+				) {
 					log('Silent resume failure detected - got different session ID', {
 						requestedChatId: cachedChatId,
 						receivedChatId: newChatId,
@@ -338,14 +358,21 @@ export class CursorAgentProvider extends BaseAIProvider {
 					// The next call will use a fresh session instead of the failed one
 				}
 
-				cacheChatId(projectRoot, model, newChatId, isNewSession || (cachedChatId && newChatId !== cachedChatId));
+				cacheChatId(
+					projectRoot,
+					model,
+					newChatId,
+					isNewSession || (cachedChatId && newChatId !== cachedChatId)
+				);
 				log('Stored chat ID for session reuse', {
 					chatId: newChatId,
 					projectRoot,
 					model,
-					isNewSession: isNewSession || (cachedChatId && newChatId !== cachedChatId),
+					isNewSession:
+						isNewSession || (cachedChatId && newChatId !== cachedChatId),
 					wasRetry: retriedWithoutResume,
-					silentResumeFailure: cachedChatId && newChatId !== cachedChatId && !retriedWithoutResume
+					silentResumeFailure:
+						cachedChatId && newChatId !== cachedChatId && !retriedWithoutResume
 				});
 			}
 
@@ -550,7 +577,7 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 	 */
 	_getSchemaTemplates() {
 		return {
-			'newTaskData': `Return a JSON object with exactly this structure:
+			newTaskData: `Return a JSON object with exactly this structure:
 {
   "title": "Clear, concise title for the task",
   "description": "A one or two sentence description of the task",
@@ -561,7 +588,7 @@ Do not use any tools or commands. Do not provide explanations. Just return clean
 
 All fields are required strings except dependencies which should be null for new tasks.`,
 
-			'subtaskData': `Return a JSON object with exactly this structure:
+			subtaskData: `Return a JSON object with exactly this structure:
 {
   "title": "Clear, concise title for the subtask",
   "description": "Brief description of what this subtask accomplishes",
@@ -572,7 +599,7 @@ All fields are required strings except dependencies which should be null for new
 
 All fields are required. Dependencies should be an array of task/subtask IDs.`,
 
-			'complexityAnalysis': `Return a JSON object with exactly this structure:
+			complexityAnalysis: `Return a JSON object with exactly this structure:
 {
   "taskId": "ID of the analyzed task",
   "complexityScore": 7,
@@ -583,9 +610,9 @@ All fields are required. Dependencies should be an array of task/subtask IDs.`,
 
 complexityScore should be 1-10, reasoningFactors should list complexity drivers.`,
 
-			'tasks_data': `Return a properly structured JSON object that matches the expected format for task-related data.`,
+			tasks_data: `Return a properly structured JSON object that matches the expected format for task-related data.`,
 
-			'generated_object': `Return a properly structured JSON object that matches the expected format for the request.`
+			generated_object: `Return a properly structured JSON object that matches the expected format for the request.`
 		};
 	}
 
@@ -597,7 +624,12 @@ complexityScore should be 1-10, reasoningFactors should list complexity drivers.
 	 */
 	_matchSchemaPatterns(schema, objectName) {
 		// PRD parsing pattern
-		if (schema && schema.properties && schema.properties.tasks && schema.properties.metadata) {
+		if (
+			schema &&
+			schema.properties &&
+			schema.properties.tasks &&
+			schema.properties.metadata
+		) {
 			return `Return a JSON object with exactly this structure (do NOT wrap in "${objectName}" or any other key):
 {
   "tasks": [
@@ -624,12 +656,20 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		}
 
 		// Task list pattern
-		if (schema && schema.properties && schema.properties.tasks && Array.isArray(schema.properties.tasks)) {
+		if (
+			schema &&
+			schema.properties &&
+			schema.properties.tasks &&
+			Array.isArray(schema.properties.tasks)
+		) {
 			return `Return a JSON object with a "tasks" array containing task objects with standard TaskMaster structure.`;
 		}
 
 		// Analysis pattern
-		if (objectName.toLowerCase().includes('analysis') || objectName.toLowerCase().includes('complexity')) {
+		if (
+			objectName.toLowerCase().includes('analysis') ||
+			objectName.toLowerCase().includes('complexity')
+		) {
 			return `Return a JSON object containing analysis results with scores, recommendations, and detailed explanations.`;
 		}
 
@@ -650,7 +690,7 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 			let instruction = `Return a JSON object for "${objectName}" with the following structure:\n{\n`;
 
 			// Build property examples
-			Object.keys(properties).forEach(key => {
+			Object.keys(properties).forEach((key) => {
 				const prop = properties[key];
 				let example = this._getPropertyExample(prop, key);
 				instruction += `  "${key}": ${example},\n`;
@@ -683,7 +723,8 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 			case 'string':
 				if (key.toLowerCase().includes('id')) return '"example-id"';
 				if (key.toLowerCase().includes('title')) return '"Example Title"';
-				if (key.toLowerCase().includes('description')) return '"Example description"';
+				if (key.toLowerCase().includes('description'))
+					return '"Example description"';
 				return '"example value"';
 
 			case 'number':
@@ -717,32 +758,32 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 			'sonnet-4': 'sonnet',
 			'claude-3-sonnet': 'sonnet',
 			'claude-sonnet': 'sonnet',
-			'sonnet': 'sonnet',
+			sonnet: 'sonnet',
 
 			// Claude Opus
-			'opus': 'opus',
+			opus: 'opus',
 			'claude-3-opus': 'opus',
 			'claude-opus': 'opus',
 
 			// Claude Haiku (if supported)
-			'haiku': 'haiku',
+			haiku: 'haiku',
 			'claude-3-haiku': 'haiku',
 			'claude-haiku': 'haiku',
 
 			// OpenAI GPT models
 			'gpt-5': 'gpt-5',
-			'gpt5': 'gpt-5',
+			gpt5: 'gpt-5',
 			'openai-gpt-5': 'gpt-5',
 
 			'gpt-4': 'gpt-4',
-			'gpt4': 'gpt-4',
+			gpt4: 'gpt-4',
 			'openai-gpt-4': 'gpt-4',
 
 			'gpt-4-turbo': 'gpt-4-turbo',
 			'gpt4-turbo': 'gpt-4-turbo',
 
 			// o1 models (if supported)
-			'o1': 'o1',
+			o1: 'o1',
 			'o1-preview': 'o1-preview',
 			'openai-o1': 'o1',
 			'openai-o1-preview': 'o1-preview'
@@ -757,13 +798,28 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 	 */
 	getSupportedModels() {
 		return [
-			'sonnet-4', 'sonnet', 'claude-3-sonnet', 'claude-sonnet',
-			'opus', 'claude-3-opus', 'claude-opus',
-			'haiku', 'claude-3-haiku', 'claude-haiku',
-			'gpt-5', 'gpt5', 'openai-gpt-5',
-			'gpt-4', 'gpt4', 'openai-gpt-4',
-			'gpt-4-turbo', 'gpt4-turbo',
-			'o1', 'o1-preview', 'openai-o1', 'openai-o1-preview'
+			'sonnet-4',
+			'sonnet',
+			'claude-3-sonnet',
+			'claude-sonnet',
+			'opus',
+			'claude-3-opus',
+			'claude-opus',
+			'haiku',
+			'claude-3-haiku',
+			'claude-haiku',
+			'gpt-5',
+			'gpt5',
+			'openai-gpt-5',
+			'gpt-4',
+			'gpt4',
+			'openai-gpt-4',
+			'gpt-4-turbo',
+			'gpt4-turbo',
+			'o1',
+			'o1-preview',
+			'openai-o1',
+			'openai-o1-preview'
 		];
 	}
 
@@ -776,7 +832,16 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 		if (!modelId) return false;
 
 		const mappedModel = this.mapModelIdToCursorAgent(modelId);
-		const knownCursorAgentModels = ['sonnet', 'opus', 'haiku', 'gpt-5', 'gpt-4', 'gpt-4-turbo', 'o1', 'o1-preview'];
+		const knownCursorAgentModels = [
+			'sonnet',
+			'opus',
+			'haiku',
+			'gpt-5',
+			'gpt-4',
+			'gpt-4-turbo',
+			'o1',
+			'o1-preview'
+		];
 
 		return knownCursorAgentModels.includes(mappedModel);
 	}
@@ -807,7 +872,8 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 
 			if (error.code === 'ENOENT') {
 				errorType = 'not_found';
-				errorMessage = 'cursor-agent CLI not found. Please install cursor-agent.';
+				errorMessage =
+					'cursor-agent CLI not found. Please install cursor-agent.';
 			} else if (error.code === 'ETIMEDOUT') {
 				errorType = 'timeout';
 				errorMessage = 'cursor-agent CLI check timed out.';
@@ -982,16 +1048,20 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 				});
 
 				// Register session with SessionManager for enhanced tracking
-				sessionManager.registerSession(sessionId, {
-					pid: child.pid,
-					childProcess: child,
-					tmpFile: tmpFile
-				}, {
-					operationType: this.detectOperationType(prompt) || 'generateText',
-					projectRoot: process.cwd(),
-					timeoutMs: timeoutMs,
-					isResearch: timeoutMs > 120000 // Research operations have longer timeouts
-				});
+				sessionManager.registerSession(
+					sessionId,
+					{
+						pid: child.pid,
+						childProcess: child,
+						tmpFile: tmpFile
+					},
+					{
+						operationType: this.detectOperationType(prompt) || 'generateText',
+						projectRoot: process.cwd(),
+						timeoutMs: timeoutMs,
+						isResearch: timeoutMs > 120000 // Research operations have longer timeouts
+					}
+				);
 				sessionRegistered = true;
 
 				let outputBuffer = '';
@@ -1205,7 +1275,9 @@ CRITICAL: Return the object directly with "tasks" and "metadata" as top-level ke
 	 * @private
 	 */
 	async _parseCompletionFromOutput(output, isResearchOperation = false) {
-		const { parseCursorAgentOutput } = await import('../utils/cursor-agent-json-parser.js');
+		const { parseCursorAgentOutput } = await import(
+			'../utils/cursor-agent-json-parser.js'
+		);
 
 		try {
 			const parsed = parseCursorAgentOutput(output, isResearchOperation);
@@ -1620,7 +1692,9 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 * @returns {boolean} True if session was cleared
 	 */
 	clearCachedSession(projectRoot, model) {
-		const { clearCachedSession } = require('../utils/cursor-agent-session-cache.js');
+		const {
+			clearCachedSession
+		} = require('../utils/cursor-agent-session-cache.js');
 		clearCachedSession(projectRoot, model);
 		return true;
 	}
@@ -1630,7 +1704,9 @@ Provide thorough complexity analysis with actionable recommendations for task op
 	 * @returns {number} Number of sessions cleared
 	 */
 	clearAllCachedSessions(projectRoot = process.cwd()) {
-		const { clearAllSessions } = require('../utils/cursor-agent-session-cache.js');
+		const {
+			clearAllSessions
+		} = require('../utils/cursor-agent-session-cache.js');
 		return clearAllSessions(projectRoot);
 	}
 
@@ -1667,6 +1743,6 @@ Provide thorough complexity analysis with actionable recommendations for task op
 			/conversation.*not.*found/i
 		];
 
-		return resumeFailurePatterns.some(pattern => pattern.test(errorMessage));
+		return resumeFailurePatterns.some((pattern) => pattern.test(errorMessage));
 	}
 }

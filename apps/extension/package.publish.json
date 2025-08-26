@@ -8,12 +8,7 @@
 	"engines": {
 		"vscode": "^1.93.0"
 	},
-	"categories": [
-		"AI",
-		"Visualization",
-		"Education",
-		"Other"
-	],
+	"categories": ["AI", "Visualization", "Education", "Other"],
 	"keywords": [
 		"kanban",
 		"kanban board",
@@ -48,10 +43,7 @@
 		"cards"
 	],
 	"repository": "https://github.com/eyaltoledano/claude-task-master",
-	"activationEvents": [
-		"onStartupFinished",
-		"workspaceContains:.taskmaster/**"
-	],
+	"activationEvents": ["onStartupFinished", "workspaceContains:.taskmaster/**"],
 	"main": "./dist/extension.js",
 	"contributes": {
 		"viewsContainers": {
@@ -103,11 +95,7 @@
 					"items": {
 						"type": "string"
 					},
-					"default": [
-						"-y",
-						"--package=task-master-ai",
-						"task-master-ai"
-					],
+					"default": ["-y", "--package=task-master-ai", "task-master-ai"],
 					"description": "An array of arguments to pass to the MCP server command."
 				},
 				"taskmaster.mcp.cwd": {
@@ -174,11 +162,7 @@
 				},
 				"taskmaster.ui.theme": {
 					"type": "string",
-					"enum": [
-						"auto",
-						"light",
-						"dark"
-					],
+					"enum": ["auto", "light", "dark"],
 					"default": "auto",
 					"description": "UI theme preference"
 				},
@@ -239,12 +223,7 @@
 				},
 				"taskmaster.debug.logLevel": {
 					"type": "string",
-					"enum": [
-						"error",
-						"warn",
-						"info",
-						"debug"
-					],
+					"enum": ["error", "warn", "info", "debug"],
 					"default": "info",
 					"description": "Logging level"
 				},

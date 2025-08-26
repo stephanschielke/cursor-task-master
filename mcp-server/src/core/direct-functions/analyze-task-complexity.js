@@ -209,9 +209,18 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 			console.log('[MCP-DEBUG] analyzeTaskComplexityDirect returning:');
 			console.log('[MCP-DEBUG] - success:', returnData.success);
 			console.log('[MCP-DEBUG] - data keys:', Object.keys(returnData.data));
-			console.log('[MCP-DEBUG] - data.fullReport type:', typeof returnData.data.fullReport);
-			console.log('[MCP-DEBUG] - data.telemetryData type:', typeof returnData.data.telemetryData);
-			console.log('[MCP-DEBUG] - data preview:', JSON.stringify(returnData).substring(0, 500));
+			console.log(
+				'[MCP-DEBUG] - data.fullReport type:',
+				typeof returnData.data.fullReport
+			);
+			console.log(
+				'[MCP-DEBUG] - data.telemetryData type:',
+				typeof returnData.data.telemetryData
+			);
+			console.log(
+				'[MCP-DEBUG] - data preview:',
+				JSON.stringify(returnData).substring(0, 500)
+			);
 
 			return returnData;
 		} catch (parseError) {
