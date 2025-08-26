@@ -8,7 +8,10 @@
 			"package-lock.json",
 			"tests/fixture/*.json",
 			"dist",
-			".cache"
+			".cache",
+			".taskmaster",
+			".cursor",
+			".vscode"
 		]
 	},
 	"formatter": {
