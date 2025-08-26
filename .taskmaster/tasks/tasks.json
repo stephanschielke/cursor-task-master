@@ -7083,7 +7083,7 @@
         "id": 1,
         "title": "Finalize CursorAgentProvider Implementation",
         "description": "Complete the existing CursorAgentProvider class with minor robustness improvements and basic testing coverage.",
-        "status": "in-progress",
+        "status": "pending",
         "dependencies": [],
         "priority": "low",
         "details": "Enhance the existing CursorAgentProvider class with: 1) Review and optimize tmux session cleanup to prevent leaks, 2) Add basic error logging for failed cursor-agent executions, 3) Verify timeout handling works correctly with current implementation, 4) Ensure JSON parsing handles common malformed response patterns, 5) Add simple configuration validation for model selection. The core functionality is already implemented including tmux isolation, generateText/generateObject methods, and fallback mechanisms.",
@@ -7662,7 +7662,7 @@
     ],
     "metadata": {
       "created": "2025-08-21T17:41:12.804Z",
-      "updated": "2025-08-24T05:00:30.546Z",
+      "updated": "2025-08-26T04:52:58.268Z",
       "description": "Tasks for cursor-agent-integration context"
     }
   }
