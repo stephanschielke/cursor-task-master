@@ -31,8 +31,8 @@ cursor-agent status
 # Verify tmux availability
 tmux -V
 
-# Test basic functionality
-echo "Hello" | cursor-agent --print --output-format json --model sonnet
+# Test basic functionality  
+echo "Hello" | cursor-agent --print --output-format json --model sonnet-4
 ```
 
 ### Configuration
@@ -43,17 +43,21 @@ Update `.taskmaster/config.json`:
   "models": {
     "main": {
       "provider": "cursor-agent",
-      "modelId": "sonnet",
-      "maxTokens": 16384,
+      "modelId": "sonnet-4",
+      "maxTokens": 163840,
       "temperature": 0.2
     },
     "research": {
-      "provider": "perplexity",
-      "modelId": "sonar-pro"
+      "provider": "cursor-agent",
+      "modelId": "sonnet-4",
+      "maxTokens": 164000,
+      "temperature": 0.2
     },
     "fallback": {
-      "provider": "openai",
-      "modelId": "gpt-4"
+      "provider": "cursor-agent",
+      "modelId": "gpt-5",
+      "maxTokens": 163840,
+      "temperature": 0.2
     }
   }
 }
@@ -98,9 +102,8 @@ User Request → MCP Server → cursor-agent Provider → tmux Session → curso
 
 ### Available Models
 
-- `sonnet` - Claude Sonnet (recommended)
-- `opus` - Claude Opus
-- `gpt-4o` - OpenAI GPT-4o
+- `sonnet-4` - Claude Sonnet 4 (recommended)
+- `opus-4.1` - Claude Opus 4.1
 - `gpt-5` - OpenAI GPT-5
 
 ### Common Operations
