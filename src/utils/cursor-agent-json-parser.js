@@ -5,6 +5,28 @@
  * Handles large responses with thousands of assistant message chunks.
  */
 
+import { getDebugFlag } from '../../scripts/modules/config-manager.js';
+
+/**
+ * Debug logging helper - only logs when debug flag is enabled
+ * @param {...any} args - Arguments to log
+ */
+function debugLog(...args) {
+	if (getDebugFlag()) {
+		console.log(...args);
+	}
+}
+
+/**
+ * Debug warning helper - only warns when debug flag is enabled
+ * @param {...any} args - Arguments to warn
+ */
+function debugWarn(...args) {
+	if (getDebugFlag()) {
+		console.warn(...args);
+	}
+}
+
 /**
  * Parse cursor-agent stream-json output to extract the result
  * @param {string} output - Raw cursor-agent stream output
@@ -26,8 +48,8 @@ function parseCursorAgentOutput(output, isResearchOperation = false) {
 	let resultObject = null;
 	let sessionId = null;
 
-	console.log('[PARSER-DEBUG] Strategy 1: Line-by-line parsing');
-	console.log('[PARSER-DEBUG] Total lines to parse:', lines.length);
+	debugLog('[PARSER-DEBUG] Strategy 1: Line-by-line parsing');
+	debugLog('[PARSER-DEBUG] Total lines to parse:', lines.length);
 
 	// Extract session ID from any line and look for result object
 	for (let i = 0; i < lines.length; i++) {
@@ -40,7 +62,7 @@ function parseCursorAgentOutput(output, isResearchOperation = false) {
 
 			// Log interesting objects
 			if (jsonObj.type === 'result' || jsonObj.session_id) {
-				console.log('[PARSER-DEBUG] Found interesting JSON object:', {
+				debugLog('[PARSER-DEBUG] Found interesting JSON object:', {
 					lineNumber: i,
 					type: jsonObj.type,
 					hasResult: !!jsonObj.result,
