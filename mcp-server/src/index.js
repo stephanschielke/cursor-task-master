@@ -67,17 +67,26 @@ class TaskMasterMCPServer {
 			event.session.server.sendLoggingMessage({
 				data: {
 					context: event.session.context,
-					message: `MCP Server connected: ${event.session.name}`
+					message: `MCP Server connected: ${event.session.name || 'unnamed-client'}`
 				},
 				level: 'info'
 			});
+			this.logger.info(`✅ Client connected: ${event.session.name || 'unnamed-client'}`);
 			this.registerRemoteProvider(event.session);
+		});
+
+		this.server.on('disconnect', (event) => {
+			this.logger.warn(`❌ Client disconnected: ${event.session?.name || 'unnamed-client'}`);
+		});
+
+		this.server.on('error', (error) => {
+			this.logger.error(`🚨 MCP Server error: ${error.message}`);
 		});
 
 		// Start the FastMCP server with increased timeout
 		await this.server.start({
 			transportType: 'stdio', // Obviously, has not PORT on STDIN/STDOUT
-			timeout: 1200000 // 20 minutes timeout (in milliseconds)
+			timeout: 300000 // 5 minutes timeout (in milliseconds) - test if 20min is needed
 		});
 
 		return this;
@@ -89,16 +98,15 @@ class TaskMasterMCPServer {
 	registerRemoteProvider(session) {
 		// Check if the server has at least one session
 		if (session) {
-			// Make sure session has required capabilities
+			// Log capabilities info but continue without sampling if missing
 			if (!session.clientCapabilities || !session.clientCapabilities.sampling) {
 				session.server.sendLoggingMessage({
 					data: {
 						context: session.context,
-						message: `MCP session missing required sampling capabilities, providers not registered`
+						message: `MCP session missing sampling capabilities, continuing without AI provider features`
 					},
-					level: 'info'
+					level: 'warn'
 				});
-				return;
 			}
 
 			// Register MCP provider with the Provider Registry
