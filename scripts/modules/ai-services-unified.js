@@ -702,13 +702,26 @@ async function _unifiedServiceRunner(serviceType, params) {
 			// Get tag information for the response
 			const tagInfo = _getTagInfo(effectiveProjectRoot);
 
-			return {
+			const result = {
 				mainResult: finalMainResult,
 				telemetryData: telemetryData,
 				tagInfo: tagInfo,
 				providerName: providerName,
 				modelId: modelId
 			};
+
+			// Pass through enhanced error information from cursor-agent
+			if (providerResponse.mcpErrors) {
+				result.mcpErrors = providerResponse.mcpErrors;
+			}
+			if (providerResponse.errors) {
+				result.errors = providerResponse.errors;
+			}
+			if (providerResponse.warnings) {
+				result.warnings = providerResponse.warnings;
+			}
+
+			return result;
 		} catch (error) {
 			const cleanMessage = _extractErrorMessage(error);
 			log(

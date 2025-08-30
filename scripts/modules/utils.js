@@ -230,12 +230,13 @@ function log(level, ...args) {
 		LOG_LEVELS[currentLevel] >= (LOG_LEVELS[configLevel] ?? LOG_LEVELS.info)
 	) {
 		const prefix = prefixes[currentLevel] || '';
-		// Use console.log for all levels, let chalk handle coloring
+		// Use console.error for all levels to prevent JSON response contamination
+		// stdout is reserved for JSON responses, stderr for logging
 		// Construct the message properly
 		const message = args
 			.map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : arg))
 			.join(' ');
-		console.log(`${prefix} ${message}`);
+		console.error(`${prefix} ${message}`);
 	}
 }
 
