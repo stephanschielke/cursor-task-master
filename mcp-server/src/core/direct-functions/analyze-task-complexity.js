@@ -238,15 +238,26 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 	} catch (error) {
 		// Catch errors from initial checks or path resolution
 		// Make sure to restore normal logging if silent mode was enabled
+
+		// Extract comprehensive diagnostic information from error
+		let errorMessage = error.message;
+		if (!error.message.includes('🚨') && error.cause && error.cause.mcpErrors) {
+			// Add MCP connection error details if not already present
+			errorMessage += '\n\n🚨 MCP Connection Errors detected:';
+			error.cause.mcpErrors.forEach(mcpError => {
+				errorMessage += `\n  - ${mcpError}`;
+			});
+			errorMessage += '\n\n💡 This indicates MCP server connection issues that prevent cursor-agent from accessing tools.';
+		}
 		if (isSilentMode()) {
 			disableSilentMode();
 		}
-		log.error(`Error in analyzeTaskComplexityDirect setup: ${error.message}`);
+		log.error(`Error in analyzeTaskComplexityDirect setup: ${errorMessage}`);
 		return {
 			success: false,
 			error: {
 				code: 'DIRECT_FUNCTION_SETUP_ERROR',
-				message: error.message
+				message: errorMessage
 			}
 		};
 	}
