@@ -1,26 +1,26 @@
 {
 	"models": {
 		"main": {
-			"provider": "anthropic",
-			"modelId": "claude-3-7-sonnet-20250219",
-			"maxTokens": 120000,
+			"provider": "cursor-agent",
+			"modelId": "auto",
+			"maxTokens": 163840,
 			"temperature": 0.2
 		},
 		"research": {
-			"provider": "perplexity",
-			"modelId": "sonar",
-			"maxTokens": 8700,
-			"temperature": 0.1
+			"provider": "cursor-agent",
+			"modelId": "auto",
+			"maxTokens": 164000,
+			"temperature": 0.2
 		},
 		"fallback": {
-			"provider": "anthropic",
-			"modelId": "claude-3-5-sonnet-20241022",
-			"maxTokens": 8192,
+			"provider": "cursor-agent",
+			"modelId": "auto",
+			"maxTokens": 163840,
 			"temperature": 0.2
 		}
 	},
 	"global": {
-		"logLevel": "info",
+		"logLevel": "debug",
 		"debug": false,
 		"defaultNumTasks": 10,
 		"defaultSubtasks": 5,
@@ -31,7 +31,7 @@
 		"responseLanguage": "English",
 		"userId": "1234567890",
 		"azureBaseURL": "https://your-endpoint.azure.com/",
-		"defaultTag": "master"
+		"defaultTag": "CURSOR"
 	},
 	"claudeCode": {}
 }

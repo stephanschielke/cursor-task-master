@@ -74,10 +74,6 @@ function log(level, ...args) {
 			coloredArgs = args;
 		}
 
-		// Revert to console.log - FastMCP's context logger (context.log)
-		// is responsible for directing logs correctly (e.g., to stderr)
-		// during tool execution without upsetting the client connection.
-		// Logs outside of tool execution (like startup) will go to stdout.
 		console.log(prefix, ...coloredArgs);
 	}
 }
@@ -89,8 +85,8 @@ function log(level, ...args) {
 export function createLogger() {
 	const createLogMethod =
 		(level) =>
-		(...args) =>
-			log(level, ...args);
+			(...args) =>
+				log(level, ...args);
 
 	return {
 		debug: createLogMethod('debug'),

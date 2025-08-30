@@ -2050,6 +2050,10 @@ function registerCommands(programInstance) {
 			'Save research results to .taskmaster/docs/research/ directory'
 		)
 		.option('--tag <tag>', 'Specify tag context for task operations')
+		.option(
+			'--no-followup',
+			'Disable interactive follow-up questions and auto-exit after results'
+		)
 		.action(async (prompt, options) => {
 			// Initialize TaskMaster
 			const initOptions = {
@@ -2208,7 +2212,10 @@ function registerCommands(programInstance) {
 				includeProjectTree: !!options.tree,
 				saveTarget: options.save ? options.save.trim() : null,
 				saveToId: options.saveTo ? options.saveTo.trim() : null,
-				allowFollowUp: true, // Always allow follow-up in CLI
+				allowFollowUp:
+					options.followup !== false &&
+					process.stdin.isTTY &&
+					process.stdout.isTTY, // Allow follow-up only in interactive terminals
 				detailLevel: options.detail ? options.detail.toLowerCase() : 'medium',
 				tasksPath: taskMaster.getTasksPath(),
 				projectRoot: taskMaster.getProjectRoot()

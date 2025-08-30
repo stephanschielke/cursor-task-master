@@ -189,7 +189,7 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 				(t) => t.complexityScore < 5
 			).length;
 
-			return {
+			const returnData = {
 				success: true,
 				data: {
 					message: `Task complexity analysis complete. Report saved to ${outputPath}`,
@@ -205,6 +205,24 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 					tagInfo: coreResult.tagInfo
 				}
 			};
+
+			console.log('[MCP-DEBUG] analyzeTaskComplexityDirect returning:');
+			console.log('[MCP-DEBUG] - success:', returnData.success);
+			console.log('[MCP-DEBUG] - data keys:', Object.keys(returnData.data));
+			console.log(
+				'[MCP-DEBUG] - data.fullReport type:',
+				typeof returnData.data.fullReport
+			);
+			console.log(
+				'[MCP-DEBUG] - data.telemetryData type:',
+				typeof returnData.data.telemetryData
+			);
+			console.log(
+				'[MCP-DEBUG] - data preview:',
+				JSON.stringify(returnData).substring(0, 500)
+			);
+
+			return returnData;
 		} catch (parseError) {
 			// Should not happen if core function returns object, but good safety check
 			log.error(`Internal error processing report data: ${parseError.message}`);
@@ -220,15 +238,26 @@ export async function analyzeTaskComplexityDirect(args, log, context = {}) {
 	} catch (error) {
 		// Catch errors from initial checks or path resolution
 		// Make sure to restore normal logging if silent mode was enabled
+
+		// Extract comprehensive diagnostic information from error
+		let errorMessage = error.message;
+		if (!error.message.includes('🚨') && error.cause && error.cause.mcpErrors) {
+			// Add MCP connection error details if not already present
+			errorMessage += '\n\n🚨 MCP Connection Errors detected:';
+			error.cause.mcpErrors.forEach(mcpError => {
+				errorMessage += `\n  - ${mcpError}`;
+			});
+			errorMessage += '\n\n💡 This indicates MCP server connection issues that prevent cursor-agent from accessing tools.';
+		}
 		if (isSilentMode()) {
 			disableSilentMode();
 		}
-		log.error(`Error in analyzeTaskComplexityDirect setup: ${error.message}`);
+		log.error(`Error in analyzeTaskComplexityDirect setup: ${errorMessage}`);
 		return {
 			success: false,
 			error: {
 				code: 'DIRECT_FUNCTION_SETUP_ERROR',
-				message: error.message
+				message: errorMessage
 			}
 		};
 	}

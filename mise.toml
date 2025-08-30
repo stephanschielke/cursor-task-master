@@ -1,0 +1,14 @@
+[tools]
+biome = "1.9.4"
+node = "22.18.0"
+tmux = "3.4"
+
+[env]
+# TaskMaster project root - defaults to current directory
+TASKMASTER_PROJECT_ROOT = "{{ config_root }}"
+
+# Test project root for intropy-ai-mcp testing - defaults to a test directory
+TEST_INTROPY_PROJECT_ROOT = "{{ config_root }}/test-projects/intropy-ai-mcp"
+
+# Cursor MCP configuration path - defaults to user's .cursor directory
+CURSOR_MCP_CONFIG_PATH = "{{ env.HOME }}/.cursor/mcp.json"

@@ -1,0 +1,11 @@
+# Task ID: 6
+# Title: Create JSONAutoRepair Utility Class
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Build a standalone utility class to consolidate existing JSON auto-repair functionality across the codebase.
+# Details:
+Create a centralized JSONAutoRepair utility class that consolidates existing repair capabilities: 1) Extract and refactor JSON repair logic from BaseAIProvider and CursorAgentProvider into a reusable utility, 2) Implement basic repair methods for common malformed JSON issues (missing quotes, trailing commas, unclosed brackets), 3) Add simple fallback parsing with basic error recovery, 4) Create unified interface for JSON repair operations across the application, 5) Add basic validation for repaired JSON structure. Focus on consolidating existing functionality rather than building new features.
+
+# Test Strategy:
+Unit tests for basic JSON repair scenarios using existing malformed JSON examples from the codebase. Test consolidation by verifying that existing BaseAIProvider and CursorAgentProvider functionality works with the new utility class. Basic integration test to ensure no regression in current JSON handling.

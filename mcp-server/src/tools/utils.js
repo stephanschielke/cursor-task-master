@@ -328,6 +328,19 @@ async function handleApiResult(
 		? processFunction(result.data)
 		: result.data;
 
+	console.log('[MCP-DEBUG] handleApiResult processing:');
+	console.log('[MCP-DEBUG] - result.success:', result.success);
+	console.log('[MCP-DEBUG] - result.data type:', typeof result.data);
+	console.log(
+		'[MCP-DEBUG] - result.data preview:',
+		JSON.stringify(result.data).substring(0, 300)
+	);
+	console.log('[MCP-DEBUG] - processedData type:', typeof processedData);
+	console.log(
+		'[MCP-DEBUG] - processedData preview:',
+		JSON.stringify(processedData).substring(0, 300)
+	);
+
 	log.info('Successfully completed operation');
 
 	// Create the response payload including version info and tag info
@@ -335,6 +348,11 @@ async function handleApiResult(
 		data: processedData,
 		version: versionInfo
 	};
+
+	console.log(
+		'[MCP-DEBUG] responsePayload before tag addition:',
+		JSON.stringify(responsePayload).substring(0, 400)
+	);
 
 	// Add tag information if available
 	if (tagInfo) {
@@ -545,20 +563,63 @@ function processMCPResponseData(
  * @returns {Object} - Content response object in FastMCP format
  */
 function createContentResponse(content) {
+	// Enhanced logging for MCP response debugging
+	console.log(
+		'[MCP-DEBUG] createContentResponse called with content type:',
+		typeof content
+	);
+
+	// Safe JSON preview that won't fail
+	let contentPreview;
+	try {
+		contentPreview = JSON.stringify(content).substring(0, 200);
+	} catch (e) {
+		contentPreview = `[JSON Preview Failed: ${e.message}]`;
+	}
+	console.log('[MCP-DEBUG] Content preview (first 200 chars):', contentPreview);
+
 	// FastMCP requires text type, so we format objects as JSON strings
-	return {
+	let responseText;
+
+	if (typeof content === 'object') {
+		try {
+			responseText = JSON.stringify(content, null, 2);
+			console.log(
+				'[MCP-DEBUG] JSON.stringify successful, result length:',
+				responseText.length
+			);
+			console.log(
+				'[MCP-DEBUG] JSON.stringify preview:',
+				responseText.substring(0, 300)
+			);
+		} catch (error) {
+			console.error('[MCP-DEBUG] JSON.stringify failed:', error.message);
+			responseText = `[JSON Stringify Error: ${error.message}]`;
+		}
+	} else {
+		responseText = String(content);
+		console.log(
+			'[MCP-DEBUG] String conversion, result length:',
+			responseText.length
+		);
+	}
+
+	const finalResponse = {
 		content: [
 			{
 				type: 'text',
-				text:
-					typeof content === 'object'
-						? // Format JSON nicely with indentation
-							JSON.stringify(content, null, 2)
-						: // Keep other content types as-is
-							String(content)
+				text: responseText
 			}
 		]
 	};
+
+	console.log('[MCP-DEBUG] Final MCP response structure:', {
+		contentArrayLength: finalResponse.content.length,
+		textLength: finalResponse.content[0].text.length,
+		textPreview: finalResponse.content[0].text.substring(0, 200)
+	});
+
+	return finalResponse;
 }
 
 /**

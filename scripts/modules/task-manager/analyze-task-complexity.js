@@ -99,9 +99,9 @@ async function analyzeTaskComplexity(options, context = {}) {
 	// New parameters for task ID filtering
 	const specificIds = options.id
 		? options.id
-				.split(',')
-				.map((id) => parseInt(id.trim(), 10))
-				.filter((id) => !Number.isNaN(id))
+			.split(',')
+			.map((id) => parseInt(id.trim(), 10))
+			.filter((id) => !Number.isNaN(id))
 		: null;
 	const fromId = options.from !== undefined ? parseInt(options.from, 10) : null;
 	const toId = options.to !== undefined ? parseInt(options.to, 10) : null;
@@ -373,36 +373,40 @@ async function analyzeTaskComplexity(options, context = {}) {
 				const lowComplexity = 0;
 				const totalAnalyzed = 0;
 
-				console.log('\nComplexity Analysis Summary:');
-				console.log('----------------------------');
-				console.log(`Tasks in input file: ${originalTaskCount}`);
-				console.log(`Tasks successfully analyzed: ${totalAnalyzed}`);
-				console.log(`High complexity tasks: ${highComplexity}`);
-				console.log(`Medium complexity tasks: ${mediumComplexity}`);
-				console.log(`Low complexity tasks: ${lowComplexity}`);
-				console.log(
-					`Sum verification: ${highComplexity + mediumComplexity + lowComplexity} (should equal ${totalAnalyzed})`
-				);
-				console.log(`Research-backed analysis: ${useResearch ? 'Yes' : 'No'}`);
-				console.log(
-					`\nSee ${outputPath} for the full report and expansion commands.`
-				);
+				if (outputFormat === 'text') {
+					console.log('\nComplexity Analysis Summary:');
+					console.log('----------------------------');
+					console.log(`Tasks in input file: ${originalTaskCount}`);
+					console.log(`Tasks successfully analyzed: ${totalAnalyzed}`);
+					console.log(`High complexity tasks: ${highComplexity}`);
+					console.log(`Medium complexity tasks: ${mediumComplexity}`);
+					console.log(`Low complexity tasks: ${lowComplexity}`);
+					console.log(
+						`Sum verification: ${highComplexity + mediumComplexity + lowComplexity} (should equal ${totalAnalyzed})`
+					);
+					console.log(
+						`Research-backed analysis: ${useResearch ? 'Yes' : 'No'}`
+					);
+					console.log(
+						`\nSee ${outputPath} for the full report and expansion commands.`
+					);
 
-				console.log(
-					boxen(
-						chalk.white.bold('Suggested Next Steps:') +
+					console.log(
+						boxen(
+							chalk.white.bold('Suggested Next Steps:') +
 							'\n\n' +
 							`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
 							`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
 							`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
-						{
-							padding: 1,
-							borderColor: 'cyan',
-							borderStyle: 'round',
-							margin: { top: 1 }
-						}
-					)
-				);
+							{
+								padding: 1,
+								borderColor: 'cyan',
+								borderStyle: 'round',
+								margin: { top: 1 }
+							}
+						)
+					);
+				}
 			}
 			return {
 				report: emptyReport,
@@ -472,54 +476,110 @@ async function analyzeTaskComplexity(options, context = {}) {
 			reportLog('Parsing complexity analysis from text response...', 'info');
 			try {
 				let cleanedResponse = aiServiceResponse.mainResult;
-				cleanedResponse = cleanedResponse.trim();
 
-				const codeBlockMatch = cleanedResponse.match(
-					/```(?:json)?\s*([\s\S]*?)\s*```/
-				);
-				if (codeBlockMatch) {
-					cleanedResponse = codeBlockMatch[1].trim();
-				} else {
-					const firstBracket = cleanedResponse.indexOf('[');
-					const lastBracket = cleanedResponse.lastIndexOf(']');
-					if (firstBracket !== -1 && lastBracket > firstBracket) {
-						cleanedResponse = cleanedResponse.substring(
-							firstBracket,
-							lastBracket + 1
+				// Check if we already have a valid JSON array (from cursor-agent parser)
+				if (
+					typeof cleanedResponse === 'object' &&
+					Array.isArray(cleanedResponse)
+				) {
+					complexityAnalysis = cleanedResponse;
+				} else if (typeof cleanedResponse === 'string') {
+					cleanedResponse = cleanedResponse.trim();
+
+					// Try parsing as-is first (for cursor-agent pre-parsed results)
+					try {
+						complexityAnalysis = JSON.parse(cleanedResponse);
+					} catch (directParseError) {
+						// Fallback to cleaning logic for raw AI responses
+						const codeBlockMatch = cleanedResponse.match(
+							/```(?:json)?\s*([\s\S]*?)\s*```/
 						);
-					} else {
-						reportLog(
-							'Warning: Response does not appear to be a JSON array.',
-							'warn'
-						);
+						if (codeBlockMatch) {
+							cleanedResponse = codeBlockMatch[1].trim();
+						} else {
+							const firstBracket = cleanedResponse.indexOf('[');
+							const lastBracket = cleanedResponse.lastIndexOf(']');
+							if (firstBracket !== -1 && lastBracket > firstBracket) {
+								cleanedResponse = cleanedResponse.substring(
+									firstBracket,
+									lastBracket + 1
+								);
+							} else {
+								reportLog(
+									'Warning: Response does not appear to be a JSON array.',
+									'warn'
+								);
+							}
+						}
+
+						if (outputFormat === 'text' && getDebugFlag(session)) {
+							console.log(chalk.gray('Attempting to parse cleaned JSON...'));
+							console.log(chalk.gray('Cleaned response (first 100 chars):'));
+							console.log(chalk.gray(cleanedResponse.substring(0, 100)));
+							console.log(chalk.gray('Last 100 chars:'));
+							console.log(
+								chalk.gray(
+									cleanedResponse.substring(cleanedResponse.length - 100)
+								)
+							);
+						}
+
+						complexityAnalysis = JSON.parse(cleanedResponse);
 					}
-				}
-
-				if (outputFormat === 'text' && getDebugFlag(session)) {
-					console.log(chalk.gray('Attempting to parse cleaned JSON...'));
-					console.log(chalk.gray('Cleaned response (first 100 chars):'));
-					console.log(chalk.gray(cleanedResponse.substring(0, 100)));
-					console.log(chalk.gray('Last 100 chars:'));
-					console.log(
-						chalk.gray(cleanedResponse.substring(cleanedResponse.length - 100))
+				} else {
+					throw new Error(
+						`Unexpected response type: ${typeof cleanedResponse}`
 					);
 				}
-
-				complexityAnalysis = JSON.parse(cleanedResponse);
 			} catch (parseError) {
+				// Build comprehensive error message with diagnostic information
+				let errorMessage = parseError.message;
+
+				if (
+					aiServiceResponse &&
+					aiServiceResponse.mcpErrors &&
+					aiServiceResponse.mcpErrors.length > 0
+				) {
+					errorMessage += '\n\n🚨 MCP Connection Errors detected:';
+					aiServiceResponse.mcpErrors.forEach((error) => {
+						errorMessage += `\n  - ${error}`;
+					});
+					errorMessage +=
+						'\n\n💡 This indicates MCP server connection issues that prevent cursor-agent from accessing tools.';
+				}
+
+				if (
+					aiServiceResponse &&
+					aiServiceResponse.errors &&
+					aiServiceResponse.errors.length > 0
+				) {
+					errorMessage += '\n\n⚠️ Additional Errors:';
+					aiServiceResponse.errors.forEach((error) => {
+						errorMessage += `\n  - ${error}`;
+					});
+				}
+
+				reportLog(`JSON parsing failed: ${errorMessage}`, 'error');
+
 				if (loadingIndicator) stopLoadingIndicator(loadingIndicator);
 				reportLog(
-					`Error parsing complexity analysis JSON: ${parseError.message}`,
+					`Error parsing complexity analysis JSON: ${errorMessage}`,
 					'error'
 				);
 				if (outputFormat === 'text') {
 					console.error(
 						chalk.red(
-							`Error parsing complexity analysis JSON: ${parseError.message}`
+							`Error parsing complexity analysis JSON: ${errorMessage}`
 						)
 					);
 				}
-				throw parseError;
+
+				const comprehensiveError = new Error(errorMessage);
+				comprehensiveError.originalError = parseError;
+				if (aiServiceResponse?.mcpErrors) comprehensiveError.mcpErrors = aiServiceResponse.mcpErrors;
+				if (aiServiceResponse?.errors) comprehensiveError.errors = aiServiceResponse.errors;
+				if (aiServiceResponse?.warnings) comprehensiveError.warnings = aiServiceResponse.warnings;
+				throw comprehensiveError;
 			}
 
 			const taskIds = tasksData.tasks.map((t) => t.id);
@@ -629,45 +689,49 @@ async function analyzeTaskComplexity(options, context = {}) {
 				).length;
 				const totalAnalyzed = complexityAnalysis.length;
 
-				console.log('\nCurrent Analysis Summary:');
-				console.log('----------------------------');
-				console.log(`Tasks analyzed in this run: ${totalAnalyzed}`);
-				console.log(`High complexity tasks: ${highComplexity}`);
-				console.log(`Medium complexity tasks: ${mediumComplexity}`);
-				console.log(`Low complexity tasks: ${lowComplexity}`);
-
-				if (existingReport) {
-					console.log('\nUpdated Report Summary:');
+				if (outputFormat === 'text') {
+					console.log('\nCurrent Analysis Summary:');
 					console.log('----------------------------');
+					console.log(`Tasks analyzed in this run: ${totalAnalyzed}`);
+					console.log(`High complexity tasks: ${highComplexity}`);
+					console.log(`Medium complexity tasks: ${mediumComplexity}`);
+					console.log(`Low complexity tasks: ${lowComplexity}`);
+
+					if (existingReport) {
+						console.log('\nUpdated Report Summary:');
+						console.log('----------------------------');
+						console.log(
+							`Total analyses in report: ${finalComplexityAnalysis.length}`
+						);
+						console.log(
+							`Analyses from previous runs: ${finalComplexityAnalysis.length - totalAnalyzed}`
+						);
+						console.log(`New/updated analyses: ${totalAnalyzed}`);
+					}
+
 					console.log(
-						`Total analyses in report: ${finalComplexityAnalysis.length}`
+						`Research-backed analysis: ${useResearch ? 'Yes' : 'No'}`
 					);
 					console.log(
-						`Analyses from previous runs: ${finalComplexityAnalysis.length - totalAnalyzed}`
+						`\nSee ${outputPath} for the full report and expansion commands.`
 					);
-					console.log(`New/updated analyses: ${totalAnalyzed}`);
-				}
 
-				console.log(`Research-backed analysis: ${useResearch ? 'Yes' : 'No'}`);
-				console.log(
-					`\nSee ${outputPath} for the full report and expansion commands.`
-				);
-
-				console.log(
-					boxen(
-						chalk.white.bold('Suggested Next Steps:') +
+					console.log(
+						boxen(
+							chalk.white.bold('Suggested Next Steps:') +
 							'\n\n' +
 							`${chalk.cyan('1.')} Run ${chalk.yellow('task-master complexity-report')} to review detailed findings\n` +
 							`${chalk.cyan('2.')} Run ${chalk.yellow('task-master expand --id=<id>')} to break down complex tasks\n` +
 							`${chalk.cyan('3.')} Run ${chalk.yellow('task-master expand --all')} to expand all pending tasks based on complexity`,
-						{
-							padding: 1,
-							borderColor: 'cyan',
-							borderStyle: 'round',
-							margin: { top: 1 }
-						}
-					)
-				);
+							{
+								padding: 1,
+								borderColor: 'cyan',
+								borderStyle: 'round',
+								margin: { top: 1 }
+							}
+						)
+					);
+				}
 
 				if (getDebugFlag(session)) {
 					console.debug(
@@ -705,19 +769,47 @@ async function analyzeTaskComplexity(options, context = {}) {
 					);
 				}
 			}
+			// Preserve MCP error information when rethrowing
+			if (aiError.message && aiError.message.includes('🚨')) {
+				throw aiError; // Already contains comprehensive information, preserve as-is
+			}
+			// Add MCP connection error details to the error before rethrowing
+			if (aiServiceResponse?.mcpErrors || aiServiceResponse?.errors || aiServiceResponse?.warnings) {
+				aiError.mcpErrors = aiServiceResponse.mcpErrors || [];
+				aiError.errors = aiServiceResponse.errors || [];
+				aiError.warnings = aiServiceResponse.warnings || [];
+			}
 			throw aiError;
 		}
 	} catch (error) {
-		reportLog(`Error analyzing task complexity: ${error.message}`, 'error');
+		// Build comprehensive error message with diagnostic information
+		let errorMessage = error.message;
+		if (error.mcpErrors && error.mcpErrors.length > 0) {
+			errorMessage += '\n\n🚨 MCP Connection Errors detected:';
+			error.mcpErrors.forEach(mcpError => {
+				errorMessage += `\n  - ${mcpError}`;
+			});
+			errorMessage += '\n\n💡 This indicates MCP server connection issues that prevent cursor-agent from accessing tools.';
+		}
+		if (error.errors && error.errors.length > 0) {
+			errorMessage += '\n\n⚠️ Additional Errors:';
+			error.errors.forEach(err => {
+				errorMessage += `\n  - ${err}`;
+			});
+		}
+
+		reportLog(`Error analyzing task complexity: ${errorMessage}`, 'error');
 		if (outputFormat === 'text') {
 			console.error(
-				chalk.red(`Error analyzing task complexity: ${error.message}`)
+				chalk.red(`Error analyzing task complexity: ${errorMessage}`)
 			);
 			if (getDebugFlag(session)) {
 				console.error(error);
 			}
 			process.exit(1);
 		} else {
+			// Update error message for MCP context and preserve diagnostic information
+			error.message = errorMessage;
 			throw error;
 		}
 	}
