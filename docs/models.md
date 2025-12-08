@@ -1,4 +1,4 @@
-# Available Models as of November 24, 2025
+# Available Models as of December 8, 2025
 
 ## Main Models
 
@@ -17,6 +17,10 @@
 | claude-code | haiku                                          | 0.45      | 0          | 0           |
 | codex-cli   | gpt-5                                          | 0.749     | 0          | 0           |
 | codex-cli   | gpt-5-codex                                    | 0.749     | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex                                  | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-high                             | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-max                              | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-max-high                         | —         | 0          | 0           |
 | mcp         | mcp-sampling                                   | —         | 0          | 0           |
 | gemini-cli  | gemini-3-pro-preview                           | 0.762     | 0          | 0           |
 | gemini-cli  | gemini-2.5-pro                                 | 0.72      | 0          | 0           |
@@ -118,6 +122,10 @@
 | claude-code | haiku                                        | 0.45      | 0          | 0           |
 | codex-cli   | gpt-5                                        | 0.749     | 0          | 0           |
 | codex-cli   | gpt-5-codex                                  | 0.749     | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex                                | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-high                           | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-max                            | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-max-high                       | —         | 0          | 0           |
 | mcp         | mcp-sampling                                 | —         | 0          | 0           |
 | gemini-cli  | gemini-3-pro-preview                         | 0.762     | 0          | 0           |
 | gemini-cli  | gemini-2.5-pro                               | 0.72      | 0          | 0           |
@@ -173,6 +181,10 @@
 | claude-code | haiku                                          | 0.45      | 0          | 0           |
 | codex-cli   | gpt-5                                          | 0.749     | 0          | 0           |
 | codex-cli   | gpt-5-codex                                    | 0.749     | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex                                  | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-high                             | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-max                              | —         | 0          | 0           |
+| cursor-cli  | gpt-5.1-codex-max-high                         | —         | 0          | 0           |
 | mcp         | mcp-sampling                                   | —         | 0          | 0           |
 | gemini-cli  | gemini-3-pro-preview                           | 0.762     | 0          | 0           |
 | gemini-cli  | gemini-2.5-pro                                 | 0.72      | 0          | 0           |
