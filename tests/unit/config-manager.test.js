@@ -49,7 +49,7 @@ const mockConsole = {
 global.console = mockConsole;
 
 // --- Define Mock Function Instances ---
-const mockFindConfigPath = jest.fn(() => null); // Default to null, can be overridden in tests
+const mockFindConfigPath = jest.fn(() => null); // Default overridden in beforeEach
 
 // Mock path-utils to prevent config file path discovery and logging
 jest.mock('../../src/utils/path-utils.js', () => ({
@@ -156,6 +156,13 @@ const DEFAULT_CONFIG = {
 		timeout: 120000,
 		workingDirectory: null,
 		defaultModel: 'grok-4-latest'
+	},
+	cursorCli: {
+		command: 'cursor',
+		args: ['chat', '--json'],
+		timeout: 120000,
+		workingDirectory: null,
+		env: {}
 	}
 };
 
@@ -291,6 +298,8 @@ beforeEach(() => {
 	mockFindProjectRoot.mockReset();
 	mockLog.mockReset();
 	mockFindConfigPath.mockReset();
+	// Clear cached config between tests to ensure fresh reads
+	configManager._clearConfigCache();
 
 	// --- Set up spies ON the imported 'fs' mock ---
 	fsExistsSyncSpy = jest.spyOn(fsMocked, 'existsSync');
@@ -299,7 +308,7 @@ beforeEach(() => {
 
 	// --- Default Mock Implementations ---
 	mockFindProjectRoot.mockReturnValue(MOCK_PROJECT_ROOT); // Default for utils.findProjectRoot
-	mockFindConfigPath.mockReturnValue(null); // Default to no config file found
+	mockFindConfigPath.mockReturnValue(MOCK_CONFIG_PATH); // Default to config file present
 	fsExistsSyncSpy.mockReturnValue(true); // Assume files exist by default
 
 	// Default readFileSync: Return REAL models content, mocked config, or throw error
@@ -646,7 +655,8 @@ describe('getConfig Tests', () => {
 				...VALID_CUSTOM_CONFIG.claudeCode
 			},
 			grokCli: { ...DEFAULT_CONFIG.grokCli },
-			codexCli: { ...DEFAULT_CONFIG.codexCli }
+			codexCli: { ...DEFAULT_CONFIG.codexCli },
+			cursorCli: { ...DEFAULT_CONFIG.cursorCli }
 		};
 		expect(config).toEqual(expectedMergedConfig);
 		expect(fsExistsSyncSpy).toHaveBeenCalledWith(MOCK_CONFIG_PATH);
@@ -690,7 +700,8 @@ describe('getConfig Tests', () => {
 				...VALID_CUSTOM_CONFIG.claudeCode
 			},
 			grokCli: { ...DEFAULT_CONFIG.grokCli },
-			codexCli: { ...DEFAULT_CONFIG.codexCli }
+			codexCli: { ...DEFAULT_CONFIG.codexCli },
+			cursorCli: { ...DEFAULT_CONFIG.cursorCli }
 		};
 		expect(config).toEqual(expectedMergedConfig);
 		expect(fsReadFileSyncSpy).toHaveBeenCalledWith(MOCK_CONFIG_PATH, 'utf-8');
@@ -800,7 +811,8 @@ describe('getConfig Tests', () => {
 				...VALID_CUSTOM_CONFIG.claudeCode
 			},
 			grokCli: { ...DEFAULT_CONFIG.grokCli },
-			codexCli: { ...DEFAULT_CONFIG.codexCli }
+			codexCli: { ...DEFAULT_CONFIG.codexCli },
+			cursorCli: { ...DEFAULT_CONFIG.cursorCli }
 		};
 		expect(config).toEqual(expectedMergedConfig);
 	});

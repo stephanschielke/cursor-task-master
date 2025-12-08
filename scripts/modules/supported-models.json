@@ -152,6 +152,60 @@
 			"supported": true
 		}
 	],
+	"cursor-cli": [
+		{
+			"id": "gpt-5.1-codex",
+			"name": "GPT-5.1 Codex",
+			"swe_score": null,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0,
+				"currency": "USD"
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 64000,
+			"supported": true
+		},
+		{
+			"id": "gpt-5.1-codex-high",
+			"name": "GPT-5.1 Codex High",
+			"swe_score": null,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0,
+				"currency": "USD"
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 64000,
+			"supported": true
+		},
+		{
+			"id": "gpt-5.1-codex-max",
+			"name": "GPT-5.1 Codex Max",
+			"swe_score": null,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0,
+				"currency": "USD"
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 64000,
+			"supported": true
+		},
+		{
+			"id": "gpt-5.1-codex-max-high",
+			"name": "GPT-5.1 Codex Max High",
+			"swe_score": null,
+			"cost_per_1m_tokens": {
+				"input": 0,
+				"output": 0,
+				"currency": "USD"
+			},
+			"allowed_roles": ["main", "fallback", "research"],
+			"max_tokens": 64000,
+			"supported": true
+		}
+	],
 	"mcp": [
 		{
 			"id": "mcp-sampling",

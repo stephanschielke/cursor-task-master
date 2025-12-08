@@ -44,6 +44,7 @@ import {
 	GoogleAIProvider,
 	GrokCliProvider,
 	GroqProvider,
+	CursorCliProvider,
 	LMStudioProvider,
 	OllamaAIProvider,
 	OpenAICompatibleProvider,
@@ -84,7 +85,8 @@ const PROVIDERS = {
 	'claude-code': new ClaudeCodeProvider(),
 	'codex-cli': new CodexCliProvider(),
 	'gemini-cli': new GeminiCliProvider(),
-	'grok-cli': new GrokCliProvider()
+	'grok-cli': new GrokCliProvider(),
+	'cursor-cli': new CursorCliProvider()
 };
 
 function _getProvider(providerName) {
@@ -549,6 +551,7 @@ async function _unifiedServiceRunner(serviceType, params) {
 		let baseURL;
 		let providerResponse;
 		let telemetryData = null;
+		let stopAfterThisRole = false;
 
 		try {
 			log('debug', `New AI service call with role: ${currentRole}`);
@@ -619,6 +622,9 @@ async function _unifiedServiceRunner(serviceType, params) {
 				session,
 				effectiveProjectRoot
 			);
+
+			// Cursor CLI must never fall back to other providers
+			stopAfterThisRole = providerName?.toLowerCase() === 'cursor-cli';
 
 			// Prepare provider-specific configuration
 			let providerSpecificParams = {};
@@ -749,6 +755,11 @@ async function _unifiedServiceRunner(serviceType, params) {
 			);
 			lastError = error;
 			lastCleanErrorMessage = cleanMessage;
+
+			// If cursor-cli is selected, do not attempt other providers
+			if (stopAfterThisRole) {
+				throw error;
+			}
 
 			if (serviceType === 'generateObject') {
 				const lowerCaseMessage = cleanMessage.toLowerCase();

@@ -22,3 +22,4 @@ export { OpenAICompatibleProvider } from './openai-compatible.js';
 export { ZAIProvider } from './zai.js';
 export { ZAICodingProvider } from './zai-coding.js';
 export { LMStudioProvider } from './lmstudio.js';
+export { CursorCliProvider } from './cursor-cli.js';

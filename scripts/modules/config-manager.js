@@ -65,12 +65,25 @@ const DEFAULTS = {
 		timeout: 120000,
 		workingDirectory: null,
 		defaultModel: 'grok-4-latest'
+	},
+	cursorCli: {
+		command: 'cursor',
+		args: ['chat', '--json'],
+		timeout: 120000,
+		workingDirectory: null,
+		env: {}
 	}
 };
 
 // --- Internal Config Loading ---
 let loadedConfig = null;
 let loadedConfigRoot = null; // Track which root loaded the config
+
+// Test helper to clear cached config (used only in tests)
+export function _clearConfigCache() {
+	loadedConfig = null;
+	loadedConfigRoot = null;
+}
 
 /**
  * Suppress config file warnings (useful during API mode detection)
@@ -135,6 +148,18 @@ function _loadAndValidateConfig(explicitRoot = null, options = {}) {
 		configPath = findConfigPath(null, { projectRoot: rootToUse, storageType });
 	}
 
+	// Fallback: if a root is known but no path was found, check the standard location
+	if (!configPath && rootToUse) {
+		const defaultConfigPath = path.join(
+			rootToUse,
+			TASKMASTER_DIR,
+			'config.json'
+		);
+		if (fs.existsSync(defaultConfigPath)) {
+			configPath = defaultConfigPath;
+		}
+	}
+
 	if (configPath) {
 		configExists = true;
 		const isLegacy = configPath.endsWith(LEGACY_CONFIG_FILE);
@@ -160,7 +185,8 @@ function _loadAndValidateConfig(explicitRoot = null, options = {}) {
 				global: { ...defaults.global, ...parsedConfig?.global },
 				claudeCode: { ...defaults.claudeCode, ...parsedConfig?.claudeCode },
 				codexCli: { ...defaults.codexCli, ...parsedConfig?.codexCli },
-				grokCli: { ...defaults.grokCli, ...parsedConfig?.grokCli }
+				grokCli: { ...defaults.grokCli, ...parsedConfig?.grokCli },
+				cursorCli: { ...defaults.cursorCli, ...parsedConfig?.cursorCli }
 			};
 			configSource = `file (${configPath})`; // Update source info
 
@@ -206,8 +232,14 @@ function _loadAndValidateConfig(explicitRoot = null, options = {}) {
 			if (config.claudeCode && !isEmpty(config.claudeCode)) {
 				config.claudeCode = validateClaudeCodeSettings(config.claudeCode);
 			}
+			if (config.grokCli && !isEmpty(config.grokCli)) {
+				config.grokCli = validateGrokCliSettings(config.grokCli);
+			}
 			if (config.codexCli && !isEmpty(config.codexCli)) {
 				config.codexCli = validateCodexCliSettings(config.codexCli);
+			}
+			if (config.cursorCli && !isEmpty(config.cursorCli)) {
+				config.cursorCli = validateCursorCliSettings(config.cursorCli);
 			}
 		} catch (error) {
 			// Use console.error for actual errors during parsing
@@ -465,6 +497,46 @@ function validateCodexCliSettings(settings) {
 	}
 }
 
+/**
+ * Validates Cursor CLI provider custom settings
+ * This is intentionally minimal and focuses on safe process execution.
+ * @param {object} settings The settings to validate
+ * @returns {object} The validated settings
+ */
+function validateCursorCliSettings(settings) {
+	const BaseSettingsSchema = z.object({
+		command: z.string().optional(),
+		args: z.array(z.string()).optional(),
+		timeout: z.number().int().positive().optional(),
+		workingDirectory: z.string().optional(),
+		env: z.record(z.string(), z.string()).optional(),
+		allowNpx: z.boolean().optional()
+	});
+
+	const CommandSpecificSchema = z
+		.record(z.string(), BaseSettingsSchema)
+		.refine(
+			(obj) =>
+				Object.keys(obj || {}).every((k) => AI_COMMAND_NAMES.includes(k)),
+			{ message: 'Invalid command name in commandSpecific' }
+		);
+
+	const SettingsSchema = BaseSettingsSchema.extend({
+		commandSpecific: CommandSpecificSchema.optional()
+	});
+
+	try {
+		return SettingsSchema.parse(settings);
+	} catch (error) {
+		console.warn(
+			chalk.yellow(
+				`Warning: Invalid Cursor CLI settings in config: ${error.message}. Falling back to default.`
+			)
+		);
+		return settings || {};
+	}
+}
+
 // --- Claude Code Settings Getters ---
 
 function getClaudeCodeSettings(explicitRoot = null, forceReload = false) {
@@ -486,6 +558,22 @@ function getCodexCliSettingsForCommand(
 	forceReload = false
 ) {
 	const settings = getCodexCliSettings(explicitRoot, forceReload);
+	const commandSpecific = settings?.commandSpecific || {};
+	return { ...settings, ...commandSpecific[commandName] };
+}
+
+function getCursorCliSettings(explicitRoot = null, forceReload = false) {
+	const config = getConfig(explicitRoot, forceReload);
+	const merged = { ...DEFAULTS.cursorCli, ...(config?.cursorCli || {}) };
+	return validateCursorCliSettings(merged);
+}
+
+function getCursorCliSettingsForCommand(
+	commandName,
+	explicitRoot = null,
+	forceReload = false
+) {
+	const settings = getCursorCliSettings(explicitRoot, forceReload);
 	const commandSpecific = settings?.commandSpecific || {};
 	return { ...settings, ...commandSpecific[commandName] };
 }
@@ -608,7 +696,8 @@ function hasCodebaseAnalysis(
 		currentProvider === CUSTOM_PROVIDERS.CLAUDE_CODE ||
 		currentProvider === CUSTOM_PROVIDERS.GEMINI_CLI ||
 		currentProvider === CUSTOM_PROVIDERS.GROK_CLI ||
-		currentProvider === CUSTOM_PROVIDERS.CODEX_CLI
+		currentProvider === CUSTOM_PROVIDERS.CODEX_CLI ||
+		currentProvider === CUSTOM_PROVIDERS.CURSOR_CLI
 	);
 }
 
@@ -648,8 +737,8 @@ function getFallbackTemperature(explicitRoot = null) {
 
 // --- Global Settings Getters ---
 
-function getGlobalConfig(explicitRoot = null) {
-	const config = getConfig(explicitRoot);
+function getGlobalConfig(explicitRoot = null, forceReload = false) {
+	const config = getConfig(explicitRoot, forceReload);
 	// Ensure global defaults are applied if global section is missing
 	return { ...DEFAULTS.global, ...(config?.global || {}) };
 }
@@ -672,7 +761,7 @@ function getDefaultSubtasks(explicitRoot = null) {
 }
 
 function getDefaultNumTasks(explicitRoot = null) {
-	const val = getGlobalConfig(explicitRoot).defaultNumTasks;
+	const val = getGlobalConfig(explicitRoot, true).defaultNumTasks;
 	const parsedVal = parseInt(val, 10);
 	return Number.isNaN(parsedVal) ? DEFAULTS.global.defaultNumTasks : parsedVal;
 }
@@ -723,8 +812,9 @@ function getVertexLocation(explicitRoot = null) {
 }
 
 function getResponseLanguage(explicitRoot = null) {
-	// Directly return value from config
-	return getGlobalConfig(explicitRoot).responseLanguage;
+	// Return explicit config value if present; otherwise undefined
+	const config = getGlobalConfig(explicitRoot, true);
+	return config.responseLanguage;
 }
 
 function getCodebaseAnalysisEnabled(explicitRoot = null) {
@@ -871,7 +961,8 @@ function isApiKeySet(providerName, session = null, projectRoot = null) {
 		CUSTOM_PROVIDERS.GEMINI_CLI,
 		CUSTOM_PROVIDERS.GROK_CLI,
 		CUSTOM_PROVIDERS.MCP,
-		CUSTOM_PROVIDERS.CODEX_CLI
+		CUSTOM_PROVIDERS.CODEX_CLI,
+		CUSTOM_PROVIDERS.CURSOR_CLI
 	];
 
 	if (providersWithoutApiKeys.includes(providerName?.toLowerCase())) {
@@ -1000,6 +1091,8 @@ function getMcpApiKeyStatus(providerName, projectRoot = null) {
 				return true; // No key needed
 			case 'codex-cli':
 				return true; // OAuth/subscription via Codex CLI
+			case 'cursor-cli':
+				return true; // Cursor CLI requires no API key
 			case 'mistral':
 				apiKeyToCheck = mcpEnv.MISTRAL_API_KEY;
 				placeholderValue = 'YOUR_MISTRAL_API_KEY_HERE';
@@ -1193,7 +1286,8 @@ export const providersWithoutApiKeys = [
 	CUSTOM_PROVIDERS.GEMINI_CLI,
 	CUSTOM_PROVIDERS.GROK_CLI,
 	CUSTOM_PROVIDERS.MCP,
-	CUSTOM_PROVIDERS.CODEX_CLI
+	CUSTOM_PROVIDERS.CODEX_CLI,
+	CUSTOM_PROVIDERS.CURSOR_CLI
 ];
 
 export {
@@ -1208,6 +1302,9 @@ export {
 	// Codex CLI settings
 	getCodexCliSettings,
 	getCodexCliSettingsForCommand,
+	// Cursor CLI settings
+	getCursorCliSettings,
+	getCursorCliSettingsForCommand,
 	// Grok CLI settings
 	getGrokCliSettings,
 	getGrokCliSettingsForCommand,
@@ -1216,6 +1313,7 @@ export {
 	validateProviderModelCombination,
 	validateClaudeCodeSettings,
 	validateCodexCliSettings,
+	validateCursorCliSettings,
 	VALIDATED_PROVIDERS,
 	CUSTOM_PROVIDERS,
 	ALL_PROVIDERS,
